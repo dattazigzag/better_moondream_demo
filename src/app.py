@@ -79,7 +79,7 @@ def _execute_action(
 
         annotated = draw_bounding_boxes(image, objects, subject)
         count = len(objects)
-        summary = f"Found {count} {subject}"
+        summary = f"Found {count} result{'s' if count != 1 else ''} for '{subject}'"
         return [
             gr.ChatMessage(role="assistant", content=summary),
             gr.ChatMessage(
@@ -105,7 +105,7 @@ def _execute_action(
 
         annotated = draw_points(image, points, subject)
         count = len(points)
-        summary = f"Located {count} {subject}" if count > 1 else f"Located {subject}"
+        summary = f"Located {count} result{'s' if count != 1 else ''} for '{subject}'"
         return [
             gr.ChatMessage(role="assistant", content=summary),
             gr.ChatMessage(

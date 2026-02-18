@@ -1,5 +1,9 @@
 # Moondream Chat
 
+| Description | Object Detection | Object Detection | Object Pointing |
+| --- | --- | --- | --- |
+| ![alt text](<assets/Screenshot 2026-02-18 at 19.58.06.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.01.10.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.01.49.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.02.31.png>) |
+
 A conversational interface for visual understanding. Upload an image, ask questions, find objects, get descriptions — all running locally on your machine with no data leaving your computer.
 
 Two AI models work together: [Moondream 3](https://moondream.ai/blog/moondream-3-preview) handles vision tasks (understanding images, detecting objects, reading text), while [Qwen 3 4B Instruct](https://ollama.com/library/qwen3:4b-instruct-2507-q4_K_M) acts as a language orchestrator that interprets what you're asking for and routes to the right capability.
