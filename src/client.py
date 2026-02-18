@@ -5,3 +5,124 @@ Thin layer around the `moondream` Python client that connects to
 Moondream Station (localhost:2020). Exposes query, caption, detect,
 and point with consistent error handling and connection health checks.
 """
+
+import moondream as md
+from PIL import Image
+
+
+# Where Moondream Station listens by default
+DEFAULT_ENDPOINT = "http://localhost:2020/v1"
+
+
+class MoondreamClient:
+    """
+    Wrapper around the moondream Python client.
+
+    Connects to a running Moondream Station instance and provides
+    clean methods for each capability. All methods return dicts —
+    either the result data or {"error": "description"} on failure.
+    """
+
+    def __init__(self, endpoint: str = DEFAULT_ENDPOINT):
+        self.endpoint = endpoint
+        self.model = md.vl(endpoint=endpoint)
+
+    def is_available(self) -> bool:
+        """
+        Check whether Moondream Station is reachable.
+
+        Attempts a minimal caption call on a tiny dummy image.
+        Returns True if Station responds, False otherwise.
+        """
+        try:
+            # Create a tiny 1x1 image — cheapest possible inference call
+            tiny_image = Image.new("RGB", (1, 1), color=(0, 0, 0))
+            self.model.caption(tiny_image, length="short")
+            return True
+        except Exception:
+            return False
+
+    def query(self, image: Image.Image, question: str) -> dict:
+        """
+        Ask a question about an image (visual question answering).
+
+        Uses reasoning mode by default — Moondream 3 will "think"
+        before answering, which produces better results for complex
+        questions. For simple factual questions, the model still
+        responds quickly.
+
+        Returns:
+            {"answer": "the model's response"}
+            or {"error": "description"} on failure
+        """
+        try:
+            result = self.model.query(image, question)
+            return {"answer": result["answer"]}
+        except Exception as e:
+            return {"error": f"Query failed: {e}"}
+
+    def caption(
+        self, image: Image.Image, length: str = "normal"
+    ) -> dict:
+        """
+        Generate a text description of the image.
+
+        Args:
+            image: PIL Image to describe.
+            length: One of "short", "normal", or "long".
+
+        Returns:
+            {"caption": "the generated description"}
+            or {"error": "description"} on failure
+        """
+        if length not in ("short", "normal", "long"):
+            return {"error": f"Invalid caption length '{length}'. Use short, normal, or long."}
+
+        try:
+            result = self.model.caption(image, length=length)
+            return {"caption": result["caption"]}
+        except Exception as e:
+            return {"error": f"Caption failed: {e}"}
+
+    def detect(self, image: Image.Image, subject: str) -> dict:
+        """
+        Detect objects in the image matching the subject.
+
+        Returns bounding boxes with coordinates normalized to 0–1
+        (relative to image dimensions).
+
+        Args:
+            image: PIL Image to search.
+            subject: What to look for (e.g. "car", "person", "cat").
+
+        Returns:
+            {"objects": [{"x_min": ..., "y_min": ..., "x_max": ..., "y_max": ...}, ...]}
+            or {"error": "description"} on failure
+        """
+        try:
+            result = self.model.detect(image, subject)
+            return {"objects": result["objects"]}
+        except Exception as e:
+            return {"error": f"Detection failed: {e}"}
+
+    def point(self, image: Image.Image, subject: str) -> dict:
+        """
+        Locate objects by their center point.
+
+        Returns point coordinates normalized to 0–1 (relative to
+        image dimensions). Values go from top-left (0,0) to
+        bottom-right (1,1).
+
+        Args:
+            image: PIL Image to search.
+            subject: What to point at (e.g. "the red button").
+
+        Returns:
+            {"points": [{"x": ..., "y": ...}, ...]}
+            or {"error": "description"} on failure
+        """
+        try:
+            result = self.model.point(image, subject)
+            return {"points": result["points"]}
+        except Exception as e:
+            return {"error": f"Pointing failed: {e}"}
