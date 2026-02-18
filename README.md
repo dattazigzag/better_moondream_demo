@@ -386,4 +386,4 @@ A 4B-parameter language model from Alibaba's Qwen team. Used here purely as an i
 
 ## License
 
-MIT
+[MIT](LICENSE)
