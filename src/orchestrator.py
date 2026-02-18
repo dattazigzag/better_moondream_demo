@@ -125,19 +125,34 @@ def _build_context_messages(
         if isinstance(content, str) and content.strip():
             messages.append({"role": role, "content": content.strip()})
 
-    messages.append({"role": "user", "content": user_message})
+    # Append /no_think to disable Qwen 3's thinking mode — we want
+    # fast structured JSON output, not chain-of-thought reasoning.
+    messages.append({"role": "user", "content": user_message + " /no_think"})
     return messages
+
+
+def _strip_think_tags(text: str) -> str:
+    """Remove <think>...</think> blocks that Qwen 3 may emit."""
+    import re
+
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
 
 def _parse_llm_response(raw: str) -> OrchestratorResult:
     """
     Parse the LLM's JSON response into an OrchestratorResult.
     """
+    # Clean any residual thinking tags
+    cleaned = _strip_think_tags(raw)
+    if not cleaned:
+        log.error(f"LLM returned empty content (raw was {len(raw)} chars, likely all <think> tags)")
+        return OrchestratorResult(error="LLM returned empty response — thinking mode may be active")
+
     try:
-        data = json.loads(raw)
+        data = json.loads(cleaned)
     except json.JSONDecodeError:
-        log.error(f"Failed to parse JSON from LLM: {raw[:200]}")
-        return OrchestratorResult(error=f"Invalid JSON from LLM: {raw[:100]}")
+        log.error(f"Failed to parse JSON from LLM: {cleaned[:200]}")
+        return OrchestratorResult(error=f"Invalid JSON from LLM: {cleaned[:100]}")
 
     action_type = data.get("action", "query")
 
