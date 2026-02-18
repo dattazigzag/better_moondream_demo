@@ -19,7 +19,7 @@ log = get_logger("orchestrator")
 
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "qwen3:4b"
+MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 
 # Lean system prompt — under 200 tokens.
 # Few-shot examples teach the output format without lengthy explanations.
@@ -125,9 +125,7 @@ def _build_context_messages(
         if isinstance(content, str) and content.strip():
             messages.append({"role": role, "content": content.strip()})
 
-    # Append /no_think to disable Qwen 3's thinking mode — we want
-    # fast structured JSON output, not chain-of-thought reasoning.
-    messages.append({"role": "user", "content": user_message + " /no_think"})
+    messages.append({"role": "user", "content": user_message})
     return messages
 
 

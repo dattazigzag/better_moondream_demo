@@ -2,9 +2,12 @@
 
 A conversational interface for visual understanding. Upload an image, ask questions, find objects, get descriptions — all running locally on your machine with no data leaving your computer.
 
-Two AI models work together: [Moondream 3](https://moondream.ai/blog/moondream-3-preview) handles vision tasks (understanding images, detecting objects, reading text), while [Qwen 3 4B](https://ollama.com/library/qwen3:4b) acts as a language orchestrator that interprets what you're asking for and routes to the right capability.
+Two AI models work together: [Moondream 3](https://moondream.ai/blog/moondream-3-preview) handles vision tasks (understanding images, detecting objects, reading text), while [Qwen 3 4B Instruct](https://ollama.com/library/qwen3:4b-instruct-2507-q4_K_M) acts as a language orchestrator that interprets what you're asking for and routes to the right capability.
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
+![Gradio 6](https://img.shields.io/badge/gradio-6.x-orange.svg)
+![Ollama](https://img.shields.io/badge/ollama-0.16+-blueviolet.svg)
+![macOS](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ---
@@ -16,7 +19,7 @@ The system uses a two-model architecture. This separation exists because vision 
 ```mermaid
 graph LR
     U[User] -->|text + image| G[Gradio UI]
-    G -->|user message + history| O[Qwen 3 4B<br/>Orchestrator]
+    G -->|user message + history| O[Qwen 3 4B Instruct<br/>Orchestrator]
     O -->|structured JSON| G
     G -->|image + action| M[Moondream 3<br/>Vision Model]
     M -->|results| G
@@ -27,7 +30,10 @@ graph LR
     style G fill:#ca8a04,color:#fff
 ```
 
-**Qwen 3 4B** (via [Ollama](https://ollama.com)) is the orchestrator. It receives the user's natural language message along with recent conversation history, and returns structured JSON specifying which vision capability to invoke. It handles ambiguous references ("what is it?"), compound requests ("find the cars and describe the red one"), and natural phrasing that a regex parser would miss. It runs in `/no_think` mode with low temperature for fast, deterministic classification — typically responding in under 500ms.
+**Qwen 3 4B Instruct** (via [Ollama](https://ollama.com)) is the orchestrator. It receives the user's natural language message along with recent conversation history, and returns structured JSON specifying which vision capability to invoke. It handles ambiguous references ("what is it?"), compound requests ("find the cars and describe the red one"), and natural phrasing that a regex parser would miss. It runs with low temperature for fast, deterministic classification — typically responding in under 500ms.
+
+> [!IMPORTANT]
+> We use the **instruct** variant (`qwen3:4b-instruct-2507-q4_K_M`), not the default `qwen3:4b`. The default Qwen 3 model uses a "thinking" mode that conflicts with Ollama's structured JSON output, producing empty responses. The instruct variant skips chain-of-thought and gives direct, schema-compliant output. See [ollama/ollama#10929](https://github.com/ollama/ollama/issues/10929) and [ollama/ollama#12917](https://github.com/ollama/ollama/issues/12917) for background.
 
 **Moondream 3** (via [Moondream Station](https://docs.moondream.ai/station/)) is the vision model. It's a 9-billion-parameter Mixture-of-Experts model that activates roughly 2 billion parameters per inference, keeping it fast despite its size. It supports four distinct capabilities: visual question answering, image captioning, object detection with bounding boxes, and object pointing with center coordinates. On Apple Silicon, Station uses MLX for native acceleration.
 
@@ -41,7 +47,7 @@ Here's what happens when you type a message:
 sequenceDiagram
     participant U as User
     participant G as Gradio App
-    participant O as Qwen 3 4B (Ollama)
+    participant O as Qwen 3 4B Instruct (Ollama)
     participant M as Moondream 3 (Station)
     participant R as Renderer
 
@@ -66,7 +72,7 @@ Moondream 3 exposes four distinct API methods, each returning a different type o
 
 ```mermaid
 graph TD
-    Q[User Message] --> O{Orchestrator<br/>Qwen 3 4B}
+    Q[User Message] --> O{Orchestrator<br/>Qwen 3 4B Instruct}
     O -->|"What breed is this?"| VQA[query<br/>Visual Question Answering]
     O -->|"Describe this image"| CAP[caption<br/>Image Description]
     O -->|"Find all cars"| DET[detect<br/>Object Detection]
@@ -116,7 +122,19 @@ The system prompt is intentionally small. Research shows that small models (1–
 
 Conversation history is limited to the last 6 messages (3 exchanges). This gives the model enough context to resolve references like "it" or "that one" without overloading its context window. Only text content is passed — images are stripped since the orchestrator doesn't need to see them.
 
-When Ollama is unreachable (connection refused or timeout), the orchestrator falls back to `intent.py`, a regex-based parser that handles simple single-action routing. You lose context resolution and multi-step support, but the app stays functional.
+### Regex Fallback (`intent.py`)
+
+When Ollama is unreachable (connection refused or timeout), the orchestrator automatically falls back to [`src/intent.py`](src/intent.py), a regex-based parser. This keeps the app functional without any external LLM dependency — you just lose the smarter features.
+
+The fallback checks patterns in a fixed priority order — first match wins:
+
+1. **Caption** — triggers on keywords like `describe`, `caption`, `what's in this image`, `tell me about this photo`. Also detects length modifiers (`brief` → short, `detailed` → long).
+2. **Detect** — triggers on `find all X`, `detect X`, `where are the X`, `how many X`, `count X`. Extracts the subject from the matched group (e.g., "find all **cars**" → subject is `cars`).
+3. **Point** — triggers on `point to X`, `where's the X`, `show me the X`. Extracts a singular subject.
+4. **Query** — catch-all fallback. Any message that doesn't match the above patterns goes to Moondream's visual QA as a direct question.
+
+> [!NOTE]
+> The regex parser has no conversation memory, so context-dependent messages like "what is it?" will go straight to query without resolving "it". It also can't handle compound requests ("find the cars and describe the red one" would match detect only). These limitations are exactly why we added the LLM orchestrator.
 
 ## Image Persistence
 
@@ -136,7 +154,7 @@ Every request flow is logged to the terminal with colored output using [loguru](
 18:42:01 [APP] New message: "find all hammers" (1 file(s))
 18:42:01 [APP] Loaded uploaded image: 1920x1080
 18:42:01 [ORCHESTRATOR] User message: "find all hammers"
-18:42:01 [ORCHESTRATOR] Sending to qwen3:4b via Ollama...
+18:42:01 [ORCHESTRATOR] Sending to qwen3:4b-instruct-2507-q4_K_M via Ollama...
 18:42:02 [ORCHESTRATOR] LLM response: {"action":"detect","subject":"hammers"}
 18:42:02 [ORCHESTRATOR] Action 1: detect | subject=hammers
 18:42:02 [MOONDREAM] detect("hammers")
@@ -163,13 +181,16 @@ moondream-station
 
 First run downloads the model weights (quantized, a few GB). After that it starts in seconds. Runs on `localhost:2020`.
 
-**2. Ollama with Qwen 3 4B** — the language orchestrator
+**2. Ollama with Qwen 3 4B Instruct** — the language orchestrator
 
 ```bash
 # Install Ollama: https://ollama.com
-ollama pull qwen3:4b
+ollama pull qwen3:4b-instruct-2507-q4_K_M
 ollama serve
 ```
+
+> [!WARNING]
+> Do **not** use `ollama pull qwen3:4b` — that pulls the thinking variant which produces empty JSON responses when used with structured output. Always use the instruct variant above.
 
 Runs on `localhost:11434`. If you skip this step, the app still works using the regex fallback — just without smart intent parsing.
 
@@ -254,6 +275,25 @@ better_moondream_demo/
 
 Ollama is installed separately (not a Python dependency) — see [ollama.com](https://ollama.com).
 
+## Swapping the Orchestrator Model
+
+The orchestrator model is configured in a single place: the `MODEL` constant at the top of [`src/orchestrator.py`](src/orchestrator.py).
+
+```python
+MODEL = "qwen3:4b-instruct-2507-q4_K_M"
+```
+
+To use a different model:
+
+1. Pull it via Ollama: `ollama pull <model-name>`
+2. Update the `MODEL` constant in `src/orchestrator.py`
+3. Restart the app
+
+> [!NOTE]
+> Any Ollama model that supports structured JSON output (the `format` parameter) should work. If you choose a model with a "thinking" mode (like the default `qwen3:4b`), it will likely produce empty responses — pick an instruct/non-thinking variant instead.
+
+The system prompt in `SYSTEM_PROMPT` is tuned to be small (~180 tokens) for 4B-class models. If you swap to a larger model (8B+), you could expand the prompt with more examples or rules without degrading performance.
+
 ## About the Models
 
 ### Moondream 3
@@ -264,11 +304,14 @@ On Apple Silicon, Moondream Station uses MLX for native acceleration with quanti
 
 [Model announcement](https://moondream.ai/blog/moondream-3-preview) · [HuggingFace weights](https://huggingface.co/moondream/moondream3-preview) · [Documentation](https://docs.moondream.ai/)
 
-### Qwen 3 4B
+### Qwen 3 4B Instruct
 
-A 4B-parameter language model from Alibaba's Qwen team. Used here purely as an intent classifier and orchestrator — it never sees the images. It was chosen for this role because of its strong structured output capabilities and dual-mode architecture (thinking/non-thinking). We use non-thinking mode for fast deterministic classification.
+A 4B-parameter language model from Alibaba's Qwen team. Used here purely as an intent classifier and orchestrator — it never sees the images. We use the **instruct variant** (`qwen3:4b-instruct-2507-q4_K_M`) specifically because it produces direct structured output without chain-of-thought reasoning, which is what we need for fast JSON classification.
 
-[Ollama page](https://ollama.com/library/qwen3:4b)
+> [!NOTE]
+> Qwen 3 models were split into "thinking" and "instruct" variants after a July 2025 update. The default tag (`qwen3:4b`) points to the thinking variant where `/no_think` and `think: false` [no longer work](https://github.com/ollama/ollama/issues/12917). The instruct variant avoids this entirely.
+
+[Ollama page](https://ollama.com/library/qwen3:4b-instruct-2507-q4_K_M) · [Qwen 3 announcement](https://qwenlm.github.io/blog/qwen3/)
 
 ## License
 
