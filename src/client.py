@@ -6,9 +6,14 @@ Moondream Station (localhost:2020). Exposes query, caption, detect,
 and point with consistent error handling and connection health checks.
 """
 
+import time
+
 import moondream as md
 from PIL import Image
 
+from src.logger import get_logger
+
+log = get_logger("moondream")
 
 # Where Moondream Station listens by default
 DEFAULT_ENDPOINT = "http://localhost:2020/v1"
@@ -56,9 +61,14 @@ class MoondreamClient:
             or {"error": "description"} on failure
         """
         try:
+            log.info(f"query(\"{question}\")")
+            start = time.time()
             result = self.model.query(image, question)
-            return {"answer": result["answer"]} # type: ignore
+            elapsed = (time.time() - start) * 1000
+            log.info(f"query result ({elapsed:.0f}ms): {str(result['answer'])[:120]}")
+            return {"answer": result["answer"]}  # type: ignore
         except Exception as e:
+            log.error(f"Query failed: {e}")
             return {"error": f"Query failed: {e}"}
 
     def caption(self, image: Image.Image, length: str = "normal") -> dict:
@@ -79,9 +89,14 @@ class MoondreamClient:
             }
 
         try:
+            log.info(f"caption(length=\"{length}\")")
+            start = time.time()
             result = self.model.caption(image, length=length)
+            elapsed = (time.time() - start) * 1000
+            log.info(f"caption result ({elapsed:.0f}ms): {str(result['caption'])[:120]}")
             return {"caption": result["caption"]}
         except Exception as e:
+            log.error(f"Caption failed: {e}")
             return {"error": f"Caption failed: {e}"}
 
     def detect(self, image: Image.Image, subject: str) -> dict:
@@ -100,9 +115,15 @@ class MoondreamClient:
             or {"error": "description"} on failure
         """
         try:
+            log.info(f"detect(\"{subject}\")")
+            start = time.time()
             result = self.model.detect(image, subject)
+            elapsed = (time.time() - start) * 1000
+            count = len(result["objects"])
+            log.info(f"detect result ({elapsed:.0f}ms): found {count} object(s)")
             return {"objects": result["objects"]}
         except Exception as e:
+            log.error(f"Detection failed: {e}")
             return {"error": f"Detection failed: {e}"}
 
     def point(self, image: Image.Image, subject: str) -> dict:
@@ -122,7 +143,13 @@ class MoondreamClient:
             or {"error": "description"} on failure
         """
         try:
+            log.info(f"point(\"{subject}\")")
+            start = time.time()
             result = self.model.point(image, subject)
+            elapsed = (time.time() - start) * 1000
+            count = len(result["points"])
+            log.info(f"point result ({elapsed:.0f}ms): found {count} point(s)")
             return {"points": result["points"]}
         except Exception as e:
+            log.error(f"Pointing failed: {e}")
             return {"error": f"Pointing failed: {e}"}

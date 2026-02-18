@@ -6,9 +6,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "gradio>=6.6.0",
+    "loguru>=0.7.3",
     "moondream>=0.2.0",
     "moondream-station>=0.1.9",
     "pillow>=10.4.0",
+    "requests>=2.32.5",
 ]
 
 [project.scripts]
