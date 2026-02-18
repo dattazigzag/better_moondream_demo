@@ -20,6 +20,30 @@ from src.intent import Capability, parse_intent
 from src.renderer import draw_bounding_boxes, draw_points
 
 
+# Custom CSS for better image display and layout
+CUSTOM_CSS = """
+/* Make images in chat messages display larger */
+.chatbot .message img {
+    max-height: 70vh !important;
+    max-width: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    border-radius: 8px;
+}
+
+/* Give the chatbot more breathing room */
+.chatbot .messages {
+    padding: 12px 16px;
+}
+
+/* Uploaded images in user messages — show at reasonable size */
+.chatbot .user img {
+    max-height: 40vh !important;
+}
+"""
+
+
 def create_app() -> gr.Blocks:
     """
     Build and return the Gradio app (without launching it).
@@ -183,20 +207,31 @@ def create_app() -> gr.Blocks:
             return gr.ChatMessage(role="assistant", content=result["answer"])
 
     # --- Build the interface ---
+    # Pass a custom Chatbot with scale=1 so it fills available height.
+    # fill_height=True on ChatInterface makes the whole app use the viewport.
+    chatbot = gr.Chatbot(
+        scale=1,
+        show_copy_button=True,
+        placeholder="Upload an image and start chatting...",
+    )
+
     app = gr.ChatInterface(
         fn=handle_message,
         multimodal=True,
+        fill_height=True,
+        chatbot=chatbot,
         title="Moondream Chat",
         description=(
             "Upload an image and chat with it. Ask questions, request "
-            "captions, detect objects, or locate specific things.\n\n"
-            "**Powered by Moondream 3 via Moondream Station.**"
+            "captions, detect objects, or locate specific things. "
+            "Powered by Moondream 3 via Moondream Station."
         ),
-        textbox=gr.MultimodalTextbox( 
+        textbox=gr.MultimodalTextbox(
             file_types=["image"],
             file_count="single",
             placeholder="Ask about your image, or upload a new one...",
             sources=["upload"],
+            scale=0,
         ),
         examples=[
             {"text": "What's in this image?"},
@@ -214,7 +249,7 @@ def create_app() -> gr.Blocks:
 def main():
     """Launch the Gradio chat interface."""
     app = create_app()
-    app.launch(theme="hmb/amethyst")
+    app.launch(theme="hmb/amethyst", css=CUSTOM_CSS)
 
 
 if __name__ == "__main__":
