@@ -178,6 +178,7 @@ def create_app() -> gr.Blocks:
         fn=handle_message,
         type="messages", # type: ignore
         multimodal=True,
+        theme="hmb/amethyst",
         title="Moondream Chat",
         description=(
             "Upload an image and chat with it. Ask questions, request "
