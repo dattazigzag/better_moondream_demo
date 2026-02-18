@@ -57,13 +57,11 @@ class MoondreamClient:
         """
         try:
             result = self.model.query(image, question)
-            return {"answer": result["answer"]}
+            return {"answer": result["answer"]} # type: ignore
         except Exception as e:
             return {"error": f"Query failed: {e}"}
 
-    def caption(
-        self, image: Image.Image, length: str = "normal"
-    ) -> dict:
+    def caption(self, image: Image.Image, length: str = "normal") -> dict:
         """
         Generate a text description of the image.
 
@@ -76,7 +74,9 @@ class MoondreamClient:
             or {"error": "description"} on failure
         """
         if length not in ("short", "normal", "long"):
-            return {"error": f"Invalid caption length '{length}'. Use short, normal, or long."}
+            return {
+                "error": f"Invalid caption length '{length}'. Use short, normal, or long."
+            }
 
         try:
             result = self.model.caption(image, length=length)

@@ -33,9 +33,9 @@ class Intent:
     """Parsed intent from a user message."""
 
     capability: Capability
-    subject: str | None = None       # for detect/point: what to look for
-    question: str | None = None      # for query: the full question
-    caption_length: str = "normal"   # for caption: short/normal/long
+    subject: str | None = None  # for detect/point: what to look for
+    question: str | None = None  # for query: the full question
+    caption_length: str = "normal"  # for caption: short/normal/long
 
 
 # Patterns are checked in order. First match wins.

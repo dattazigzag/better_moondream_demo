@@ -15,18 +15,18 @@ from PIL import Image, ImageDraw, ImageFont
 
 # Distinct colors for multiple detected objects. Each is (R, G, B).
 BBOX_COLORS = [
-    (255, 75, 75),    # red
-    (75, 150, 255),   # blue
-    (75, 220, 75),    # green
-    (255, 200, 50),   # yellow
+    (255, 75, 75),  # red
+    (75, 150, 255),  # blue
+    (75, 220, 75),  # green
+    (255, 200, 50),  # yellow
     (200, 100, 255),  # purple
-    (255, 150, 50),   # orange
-    (50, 220, 220),   # cyan
+    (255, 150, 50),  # orange
+    (50, 220, 220),  # cyan
     (255, 100, 175),  # pink
 ]
 
-POINT_COLOR = (255, 75, 75)       # red markers
-POINT_RING_COLOR = (255, 255, 255) # white outer ring for contrast
+POINT_COLOR = (255, 75, 75)  # red markers
+POINT_RING_COLOR = (255, 255, 255)  # white outer ring for contrast
 
 
 def _get_font(size: int = 14) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
