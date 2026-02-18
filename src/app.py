@@ -186,7 +186,6 @@ def create_app() -> gr.Blocks:
     app = gr.ChatInterface(
         fn=handle_message,
         multimodal=True,
-        theme="hmb/amethyst", # type: ignore
         title="Moondream Chat",
         description=(
             "Upload an image and chat with it. Ask questions, request "
@@ -215,7 +214,7 @@ def create_app() -> gr.Blocks:
 def main():
     """Launch the Gradio chat interface."""
     app = create_app()
-    app.launch()
+    app.launch(theme="hmb/amethyst")
 
 
 if __name__ == "__main__":
