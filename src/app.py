@@ -207,18 +207,14 @@ def create_app() -> gr.Blocks:
             return gr.ChatMessage(role="assistant", content=result["answer"])
 
     # --- Build the interface ---
-    # Pass a custom Chatbot with scale=1 so it fills available height.
-    # fill_height=True on ChatInterface makes the whole app use the viewport.
     chatbot = gr.Chatbot(
-        scale=1,
-        show_copy_button=True,
+        height="75vh",
         placeholder="Upload an image and start chatting...",
     )
 
     app = gr.ChatInterface(
         fn=handle_message,
         multimodal=True,
-        fill_height=True,
         chatbot=chatbot,
         title="Moondream Chat",
         description=(
@@ -231,7 +227,6 @@ def create_app() -> gr.Blocks:
             file_count="single",
             placeholder="Ask about your image, or upload a new one...",
             sources=["upload"],
-            scale=0,
         ),
         examples=[
             {"text": "What's in this image?"},
