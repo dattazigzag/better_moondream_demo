@@ -34,7 +34,7 @@ logger.add(
 )
 
 
-def get_logger(name: str) -> logger.__class__:
+def get_logger(name: str) -> logger.__class__:  # type: ignore
     """
     Get a logger bound to a specific component name.
 

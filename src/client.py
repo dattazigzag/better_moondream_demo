@@ -61,11 +61,11 @@ class MoondreamClient:
             or {"error": "description"} on failure
         """
         try:
-            log.info(f"query(\"{question}\")")
+            log.info(f'query("{question}")')
             start = time.time()
             result = self.model.query(image, question)
             elapsed = (time.time() - start) * 1000
-            log.info(f"query result ({elapsed:.0f}ms): {str(result['answer'])[:120]}")
+            log.info(f"query result ({elapsed:.0f}ms): {str(result['answer'])[:120]}")  # type: ignore
             return {"answer": result["answer"]}  # type: ignore
         except Exception as e:
             log.error(f"Query failed: {e}")
@@ -89,11 +89,13 @@ class MoondreamClient:
             }
 
         try:
-            log.info(f"caption(length=\"{length}\")")
+            log.info(f'caption(length="{length}")')
             start = time.time()
             result = self.model.caption(image, length=length)
             elapsed = (time.time() - start) * 1000
-            log.info(f"caption result ({elapsed:.0f}ms): {str(result['caption'])[:120]}")
+            log.info(
+                f"caption result ({elapsed:.0f}ms): {str(result['caption'])[:120]}"
+            )
             return {"caption": result["caption"]}
         except Exception as e:
             log.error(f"Caption failed: {e}")
@@ -115,7 +117,7 @@ class MoondreamClient:
             or {"error": "description"} on failure
         """
         try:
-            log.info(f"detect(\"{subject}\")")
+            log.info(f'detect("{subject}")')
             start = time.time()
             result = self.model.detect(image, subject)
             elapsed = (time.time() - start) * 1000
@@ -143,7 +145,7 @@ class MoondreamClient:
             or {"error": "description"} on failure
         """
         try:
-            log.info(f"point(\"{subject}\")")
+            log.info(f'point("{subject}")')
             start = time.time()
             result = self.model.point(image, subject)
             elapsed = (time.time() - start) * 1000
