@@ -312,10 +312,25 @@ def create_app() -> gr.Blocks:
     return app
 
 
-def main():
-    """Launch the Gradio chat interface."""
+def main(host: str | None = None, port: int | None = None):
+    """
+    Launch the Gradio chat interface.
+
+    Args:
+        host: Bind address (defaults to config.yaml → app.host).
+        port: Port number (defaults to config.yaml → app.port).
+    """
+    from src.config import config
+
+    app_cfg = config["app"]
     app = create_app()
-    app.launch(theme="hmb/amethyst", css=CUSTOM_CSS)
+    app.launch(
+        server_name=host or app_cfg["host"],
+        server_port=port or app_cfg["port"],
+        theme=app_cfg["theme"],
+        share=app_cfg["share"],
+        css=CUSTOM_CSS,
+    )
 
 
 if __name__ == "__main__":

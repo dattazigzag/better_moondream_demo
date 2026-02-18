@@ -1,0 +1,25 @@
+# ──────────────────────────────────────────────────────────────────
+# Moondream Chat — Configuration
+# ──────────────────────────────────────────────────────────────────
+# All settings have sensible defaults. Edit this file to change
+# endpoints, models, or app behaviour without touching Python code.
+# ──────────────────────────────────────────────────────────────────
+
+# --- Moondream Station (vision model) -----------------------------
+moondream:
+  endpoint: "http://localhost:2020/v1"
+
+# --- Ollama (LLM orchestrator) ------------------------------------
+ollama:
+  url: "http://localhost:11434"
+  model: "qwen3:4b-instruct-2507-q4_K_M"
+  temperature: 0.1
+  num_predict: 256       # max tokens for intent JSON
+  timeout: 30            # seconds
+
+# --- Gradio App ---------------------------------------------------
+app:
+  host: "0.0.0.0"        # bind to all interfaces (LAN-accessible)
+  port: 7860
+  theme: "hmb/amethyst"
+  share: false            # set true to create a public Gradio link

@@ -11,12 +11,12 @@ import time
 import moondream as md
 from PIL import Image
 
+from src.config import config
 from src.logger import get_logger
 
 log = get_logger("moondream")
 
-# Where Moondream Station listens by default
-DEFAULT_ENDPOINT = "http://localhost:2020/v1"
+DEFAULT_ENDPOINT = config["moondream"]["endpoint"]
 
 
 class MoondreamClient:

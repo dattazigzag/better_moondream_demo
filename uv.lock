@@ -128,6 +128,7 @@ dependencies = [
     { name = "moondream" },
     { name = "moondream-station" },
     { name = "pillow" },
+    { name = "pyyaml" },
     { name = "requests" },
 ]
 
@@ -138,6 +139,7 @@ requires-dist = [
     { name = "moondream", specifier = ">=0.2.0" },
     { name = "moondream-station", specifier = ">=0.1.9" },
     { name = "pillow", specifier = ">=10.4.0" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "requests", specifier = ">=2.32.5" },
 ]
 

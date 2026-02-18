@@ -229,6 +229,30 @@ If you don't have uv:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
+## Configuration
+
+All settings live in [`config.yaml`](config.yaml) at the project root. Edit it to change endpoints, models, ports, or theme without touching Python code:
+
+```yaml
+moondream:
+  endpoint: "http://localhost:2020/v1"
+
+ollama:
+  url: "http://localhost:11434"
+  model: "qwen3:4b-instruct-2507-q4_K_M"
+  temperature: 0.1
+  num_predict: 256
+  timeout: 30
+
+app:
+  host: "0.0.0.0"       # LAN-accessible by default
+  port: 7860
+  theme: "hmb/amethyst"
+  share: false
+```
+
+Every key has a sensible default — the app runs fine even if `config.yaml` is missing.
+
 ## Running
 
 Three terminals:
@@ -244,7 +268,14 @@ ollama serve
 uv run python main.py
 ```
 
-Opens at `http://localhost:7860`. Upload an image and start chatting.
+By default it binds to `0.0.0.0:7860`, so it's accessible from other devices on your LAN. Override with CLI flags:
+
+```bash
+uv run python main.py --port 8080
+uv run python main.py --host 127.0.0.1 --port 9000
+```
+
+CLI flags take priority over `config.yaml` values.
 
 ## Example Conversations
 
@@ -270,12 +301,14 @@ Opens at `http://localhost:7860`. Upload an image and start chatting.
 
 ```
 better_moondream_demo/
-├── main.py               Entry point
+├── main.py               Entry point with CLI args (--host, --port)
+├── config.yaml           All configurable settings (endpoints, models, ports)
 ├── pyproject.toml         Dependencies and project config
 ├── README.md
 ├── .gitignore
 └── src/
     ├── __init__.py
+    ├── config.py          YAML config loader with defaults
     ├── app.py             Gradio chat interface, wires everything together
     ├── orchestrator.py    LLM-powered intent parsing via Ollama
     ├── client.py          Moondream Station client wrapper
@@ -294,21 +327,23 @@ better_moondream_demo/
 | [requests](https://docs.python-requests.org/) | HTTP client for Ollama API |
 | [loguru](https://github.com/Delgan/loguru) | Colored structured logging |
 | [Pillow](https://python-pillow.org/) | Image loading and annotation drawing |
+| [PyYAML](https://pyyaml.org/) | Configuration file loading |
 
 Ollama is installed separately (not a Python dependency) — see [ollama.com](https://ollama.com).
 
 ## Swapping the Orchestrator Model
 
-The orchestrator model is configured in a single place: the `MODEL` constant at the top of [`src/orchestrator.py`](src/orchestrator.py).
+The orchestrator model is configured in [`config.yaml`](config.yaml):
 
-```python
-MODEL = "qwen3:4b-instruct-2507-q4_K_M"
+```yaml
+ollama:
+  model: "qwen3:4b-instruct-2507-q4_K_M"
 ```
 
 To use a different model:
 
 1. Pull it via Ollama: `ollama pull <model-name>`
-2. Update the `MODEL` constant in `src/orchestrator.py`
+2. Update `ollama.model` in `config.yaml`
 3. Restart the app
 
 > [!NOTE]

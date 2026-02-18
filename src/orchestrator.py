@@ -13,13 +13,18 @@ import json
 import requests
 from dataclasses import dataclass, field
 
+from src.config import config
 from src.logger import get_logger
 
 log = get_logger("orchestrator")
 
-
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "qwen3:4b-instruct-2507-q4_K_M"
+_ollama = config["ollama"]
+OLLAMA_BASE = _ollama["url"]
+OLLAMA_URL = f"{OLLAMA_BASE}/api/chat"
+MODEL = _ollama["model"]
+TEMPERATURE = _ollama["temperature"]
+NUM_PREDICT = _ollama["num_predict"]
+TIMEOUT = _ollama["timeout"]
 
 # Lean system prompt — under 200 tokens.
 # Few-shot examples teach the output format without lengthy explanations.
@@ -227,11 +232,11 @@ def orchestrate(
                 "stream": False,
                 "format": OUTPUT_SCHEMA,
                 "options": {
-                    "temperature": 0.1,  # Low temp for consistent structured output
-                    "num_predict": 256,  # Intent JSON is short
+                    "temperature": TEMPERATURE,
+                    "num_predict": NUM_PREDICT,
                 },
             },
-            timeout=30,
+            timeout=TIMEOUT,
         )
         response.raise_for_status()
 
@@ -289,7 +294,7 @@ def _fallback_parse(user_message: str) -> OrchestratorResult:
 def is_ollama_available() -> bool:
     """Check if Ollama is running and the model is loaded."""
     try:
-        resp = requests.get("http://localhost:11434/api/tags", timeout=5)
+        resp = requests.get(f"{OLLAMA_BASE}/api/tags", timeout=5)
         if resp.status_code != 200:
             return False
         models = [m.get("name", "") for m in resp.json().get("models", [])]
