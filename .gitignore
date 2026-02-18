@@ -1,0 +1,37 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Model weights (large binary files)
+models/
+*.pth
+*.bin
+*.safetensors
+*.gguf
+*.onnx
+
+# Environment and secrets
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Gradio flagged data
+flagged/
+
+# Jupyter
+.ipynb_checkpoints/
