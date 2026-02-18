@@ -4,6 +4,11 @@
 | --- | --- | --- | --- |
 | ![alt text](<assets/Screenshot 2026-02-18 at 19.58.06.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.01.10.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.01.49.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.02.31.png>) |
 
+
+| Basic OCR | Explicit structure data query response | Default structured data dump | Default structured data dump |
+| --- | --- | --- | --- | 
+| ![alt text](<assets/Screenshot 2026-02-18 at 21.12.04.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.54.56.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.50.56.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.50.58.png>) | 
+
 A conversational interface for visual understanding. Upload an image, ask questions, find objects, get descriptions — all running locally on your machine with no data leaving your computer.
 
 Two AI models work together: [Moondream 3](https://moondream.ai/blog/moondream-3-preview) handles vision tasks (understanding images, detecting objects, reading text), while [Qwen 3 4B Instruct](https://ollama.com/library/qwen3:4b-instruct-2507-q4_K_M) acts as a language orchestrator that interprets what you're asking for and routes to the right capability.
@@ -189,16 +194,8 @@ OLLAMA_DEBUG=1 ollama serve
 
 You need two local services running before starting the app:
 
-**1. Moondream Station** — the vision model server
 
-```bash
-pip install moondream-station
-moondream-station
-```
-
-First run downloads the model weights (quantized, a few GB). After that it starts in seconds. Runs on `localhost:2020`.
-
-**2. Ollama with Qwen 3 4B Instruct** — the language orchestrator
+**1. Ollama with Qwen 3 4B Instruct** — the language orchestrator
 
 ```bash
 # Install Ollama: https://ollama.com
@@ -213,7 +210,7 @@ Runs on `localhost:11434`. If you skip this step, the app still works using the 
 
 For more details: [Moondream Station docs](https://docs.moondream.ai/station/) · [Ollama docs](https://ollama.com)
 
-## Setup
+**2. Setup**
 
 Clone the repo and install dependencies with [uv](https://docs.astral.sh/uv/):
 
@@ -223,11 +220,22 @@ cd better_moondream_demo
 uv sync
 ```
 
-If you don't have uv:
+> [!Tip]
+> If you don't have uv:
+> 
+> ```bash
+> curl -LsSf https://astral.sh/uv/install.sh | sh
+> ```
+
+**3. Moondream Station** — the vision model server
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# Note: Source the venv of the project first  
+moondream-station
 ```
+
+First run downloads the model weights (quantized, a few GB). After that it starts in seconds. Runs on `localhost:2020`.
+
 
 ## Configuration
 
@@ -258,7 +266,8 @@ Every key has a sensible default — the app runs fine even if `config.yaml` is 
 Three terminals:
 
 ```bash
-# Terminal 1: Vision model
+# Terminal 1: Vision model host
+# Note: Source the venv of the project first  
 moondream-station
 
 # Terminal 2: Language orchestrator

@@ -8,6 +8,8 @@
 # --- Moondream Station (vision model) -----------------------------
 moondream:
   endpoint: "http://localhost:2020/v1"
+  timeout: 90             # seconds — increase for dense OCR on large images
+  max_tokens: 2048        # max output tokens for query (OCR, structured output)
 
 # --- Ollama (LLM orchestrator) ------------------------------------
 ollama:

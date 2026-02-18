@@ -20,6 +20,8 @@ _CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.yaml"
 _DEFAULTS = {
     "moondream": {
         "endpoint": "http://localhost:2020/v1",
+        "timeout": 90,
+        "max_tokens": 2048,
     },
     "ollama": {
         "url": "http://localhost:11434",
