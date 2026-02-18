@@ -26,26 +26,34 @@ MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 SYSTEM_PROMPT = """You route user queries about images to vision model actions. Return JSON only, no other text.
 
 Available actions:
-- query: Ask a question about the image. Use for any general question.
+- query: Ask a question about the image. Set reasoning=true for complex questions, false for simple factual ones.
 - caption: Generate image description. Lengths: short, normal, long.
 - detect: Find objects with bounding boxes. Needs a subject.
 - point: Locate object center points. Needs a subject.
 - multi: Multiple sequential actions. Use when user asks for more than one thing.
 
 Examples:
-User: "What's happening here?" → {"action":"query","question":"What's happening here?"}
+User: "What's happening here?" → {"action":"query","question":"What's happening here?","reasoning":true}
+User: "What color is the sky?" → {"action":"query","question":"What color is the sky?","reasoning":false}
 User: "Describe this" → {"action":"caption","length":"normal"}
 User: "Give me a detailed description" → {"action":"caption","length":"long"}
 User: "Find all cars" → {"action":"detect","subject":"cars"}
 User: "How many people are there?" → {"action":"detect","subject":"people"}
 User: "Where's the dog?" → {"action":"point","subject":"dog"}
-User: "Find the cars and describe the red one" → {"action":"multi","steps":[{"action":"detect","subject":"cars"},{"action":"query","question":"Describe the red car"}]}
-User: "What is it?" (previous topic: hammer) → {"action":"query","question":"What is the hammer?"}
+User: "Read the text" → {"action":"query","question":"Read all visible text in this image.","reasoning":false}
+User: "Convert to markdown" → {"action":"query","question":"Convert the content of this image to markdown.","reasoning":false}
+User: "Extract a JSON with keys: name, color" → {"action":"query","question":"A JSON array with keys: name, color.","reasoning":false}
+User: "OCR this" → {"action":"query","question":"Extract all text visible in this image.","reasoning":false}
+User: "What does the sign say?" → {"action":"query","question":"What does the sign say?","reasoning":false}
+User: "Find the cars and describe the red one" → {"action":"multi","steps":[{"action":"detect","subject":"cars"},{"action":"query","question":"Describe the red car","reasoning":true}]}
+User: "What is it?" (previous topic: hammer) → {"action":"query","question":"What is the hammer?","reasoning":true}
 
 Rules:
 - If user says "it"/"that"/"this one", resolve from context and put the full question in the output.
 - For counting questions, use detect (bounding boxes show the count).
-- When unsure, default to query.
+- For OCR, text extraction, markdown/JSON/CSV conversion: use query with reasoning=false.
+- Pass the user's prompt phrasing to question — the vision model handles structured output formats natively.
+- When unsure, default to query with reasoning=true.
 - Return ONLY valid JSON. No markdown, no explanation."""
 
 
@@ -60,6 +68,7 @@ OUTPUT_SCHEMA = {
         "question": {"type": "string"},
         "subject": {"type": "string"},
         "length": {"type": "string", "enum": ["short", "normal", "long"]},
+        "reasoning": {"type": "boolean"},
         "steps": {
             "type": "array",
             "items": {
@@ -69,6 +78,7 @@ OUTPUT_SCHEMA = {
                     "question": {"type": "string"},
                     "subject": {"type": "string"},
                     "length": {"type": "string"},
+                    "reasoning": {"type": "boolean"},
                 },
                 "required": ["action"],
             },
@@ -86,6 +96,7 @@ class Action:
     question: str | None = None
     subject: str | None = None
     length: str = "normal"
+    reasoning: bool = True  # whether to use Moondream's reasoning mode for query
 
 
 @dataclass
@@ -164,6 +175,7 @@ def _parse_llm_response(raw: str) -> OrchestratorResult:
                     question=step.get("question"),
                     subject=step.get("subject"),
                     length=step.get("length", "normal"),
+                    reasoning=step.get("reasoning", True),
                 )
             )
         if not actions:
@@ -175,6 +187,7 @@ def _parse_llm_response(raw: str) -> OrchestratorResult:
             question=data.get("question"),
             subject=data.get("subject"),
             length=data.get("length", "normal"),
+            reasoning=data.get("reasoning", True),
         )
         return OrchestratorResult(actions=[action])
 
@@ -236,7 +249,7 @@ def orchestrate(
         result = _parse_llm_response(content)
 
         for i, action in enumerate(result.actions):
-            log.info(f"Action {i + 1}: {action.action} | subject={action.subject} question={action.question} length={action.length}")
+            log.info(f"Action {i + 1}: {action.action} | subject={action.subject} question={action.question} length={action.length} reasoning={action.reasoning}")
 
         return result
 

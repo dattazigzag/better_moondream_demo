@@ -13,6 +13,8 @@ Run with:
     moondream-chat  (if installed via uv/pip)
 """
 
+import json
+
 import gradio as gr
 from PIL import Image
 
@@ -48,12 +50,28 @@ CUSTOM_CSS = """
 """
 
 
+def _raw_data_block(data: dict) -> str:
+    """Format raw result data as a collapsible markdown details block."""
+    formatted = json.dumps(data, indent=2)
+    return (
+        "\n<details><summary>Raw data</summary>\n\n"
+        f"```json\n{formatted}\n```\n\n"
+        "</details>"
+    )
+
+
 def _execute_action(
-    action: Action, image: Image.Image, client: MoondreamClient
+    action: Action, image, raw_image: Image.Image, client: MoondreamClient
 ) -> list[gr.ChatMessage]:
     """
     Execute a single orchestrator action against Moondream and return
     one or more ChatMessage objects for the response.
+
+    Args:
+        action: The parsed action from the orchestrator.
+        image: Pre-encoded image (or raw PIL Image as fallback).
+        raw_image: Original PIL Image for rendering annotations.
+        client: The MoondreamClient instance.
     """
     if action.action == "caption":
         length = action.length or "normal"
@@ -77,11 +95,12 @@ def _execute_action(
                 )
             ]
 
-        annotated = draw_bounding_boxes(image, objects, subject)
+        annotated = draw_bounding_boxes(raw_image, objects, subject)
         count = len(objects)
         summary = f"Found {count} result{'s' if count != 1 else ''} for '{subject}'"
+        raw_block = _raw_data_block({"objects": objects, "count": count})
         return [
-            gr.ChatMessage(role="assistant", content=summary),
+            gr.ChatMessage(role="assistant", content=summary + raw_block),
             gr.ChatMessage(
                 role="assistant",
                 content=gr.Image(value=annotated),
@@ -103,11 +122,12 @@ def _execute_action(
                 )
             ]
 
-        annotated = draw_points(image, points, subject)
+        annotated = draw_points(raw_image, points, subject)
         count = len(points)
         summary = f"Located {count} result{'s' if count != 1 else ''} for '{subject}'"
+        raw_block = _raw_data_block({"points": points, "count": count})
         return [
-            gr.ChatMessage(role="assistant", content=summary),
+            gr.ChatMessage(role="assistant", content=summary + raw_block),
             gr.ChatMessage(
                 role="assistant",
                 content=gr.Image(value=annotated),
@@ -115,9 +135,10 @@ def _execute_action(
         ]
 
     else:
-        # Default: query
+        # Default: query (includes OCR, structured output, general VQA)
         question = action.question or "What is in this image?"
-        result = client.query(image, question)
+        reasoning = action.reasoning
+        result = client.query(image, question, reasoning=reasoning)
         if "error" in result:
             return [gr.ChatMessage(role="assistant", content=result["error"])]
         return [gr.ChatMessage(role="assistant", content=result["answer"])]
@@ -221,6 +242,11 @@ def create_app() -> gr.Blocks:
         if not text:
             text = "Describe this image"
 
+        # --- Encode image for reuse across multiple Moondream calls ---
+        encoded_image = client.encode_image(current_image)
+        # Use encoded version if available, fall back to raw PIL image
+        working_image = encoded_image if encoded_image is not None else current_image
+
         # --- Orchestrate: parse intent via LLM (or regex fallback) ---
         orch_result = orchestrate(text, history)
 
@@ -237,7 +263,7 @@ def create_app() -> gr.Blocks:
             if len(orch_result.actions) > 1:
                 log.info(f"Executing step {i + 1}/{len(orch_result.actions)}: {action.action}")
 
-            responses = _execute_action(action, current_image, client)
+            responses = _execute_action(action, working_image, current_image, client)
             all_responses.extend(responses)
 
         log.info(f"Returning {len(all_responses)} message(s) to chat")
@@ -255,9 +281,9 @@ def create_app() -> gr.Blocks:
         chatbot=chatbot,
         title="Moondream Chat",
         description=(
-            "Upload an image and chat with it. Ask questions, request "
-            "captions, detect objects, or locate specific things. "
-            "Powered by Moondream 3 via Moondream Station."
+            "Upload an image and chat with it. Ask questions, detect objects, "
+            "extract text (OCR), get structured data (JSON/markdown), or "
+            "locate specific things. Powered by Moondream 3 + Qwen 3 4B."
         ),
         textbox=gr.MultimodalTextbox(
             file_types=["image"],
@@ -266,12 +292,20 @@ def create_app() -> gr.Blocks:
             sources=["upload"],
         ),
         examples=[
-            {"text": "What's in this image?"},
+            # Vision QA
+            {"text": "What's happening in this image?"},
             {"text": "Describe this image in detail"},
+            # Detection & pointing
             {"text": "Find all people"},
-            {"text": "Where's the main subject?"},
-            {"text": "How many objects are there?"},
             {"text": "Point to the largest item"},
+            {"text": "How many chairs are there?"},
+            # OCR & text extraction
+            {"text": "Read all the text in this image"},
+            {"text": "Convert the text to markdown"},
+            # Structured output
+            {"text": "Extract a JSON array with keys: object, color, position"},
+            # Multi-step
+            {"text": "Find all the objects and describe the most interesting one"},
         ],
     )
 

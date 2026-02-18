@@ -70,43 +70,56 @@ sequenceDiagram
 
 The orchestrator is the key piece that makes compound requests like this work. Without it, "find all hammers and describe the biggest one" would just go to a single query call and return a text answer with no bounding boxes.
 
-## The Four Vision Capabilities
+## Vision Capabilities
 
-Moondream 3 exposes four distinct API methods, each returning a different type of data. The orchestrator picks the right one based on what you're asking.
+Moondream 3 exposes four distinct API methods, plus powerful prompt-driven features like OCR and structured output. The orchestrator picks the right approach based on what you're asking.
 
 ```mermaid
 graph TD
     Q[User Message] --> O{Orchestrator<br/>Qwen 3 4B Instruct}
-    O -->|"What breed is this?"| VQA[query<br/>Visual Question Answering]
-    O -->|"Describe this image"| CAP[caption<br/>Image Description]
-    O -->|"Find all cars"| DET[detect<br/>Object Detection]
-    O -->|"Where's the cat?"| PT[point<br/>Object Pointing]
+    O -->|"What breed is this?"| VQA[query<br/>Visual QA]
+    O -->|"Describe this image"| CAP[caption<br/>Description]
+    O -->|"Find all cars"| DET[detect<br/>Bounding Boxes]
+    O -->|"Where's the cat?"| PT[point<br/>Location Markers]
+    O -->|"Read the text"| OCR[query<br/>OCR / Text Extraction]
+    O -->|"Extract JSON with keys: ..."| STR[query<br/>Structured Output]
 
     VQA --> T1[Text answer]
     CAP --> T2[Text description]
-    DET --> B[Bounding boxes → annotated image]
-    PT --> P[Point markers → annotated image]
+    DET --> B[Annotated image + raw coords]
+    PT --> P[Annotated image + raw coords]
+    OCR --> T3[Extracted text / markdown]
+    STR --> T4[JSON / CSV / XML]
 
     style O fill:#0891b2,color:#fff
     style VQA fill:#16a34a,color:#fff
     style CAP fill:#16a34a,color:#fff
     style DET fill:#16a34a,color:#fff
     style PT fill:#16a34a,color:#fff
+    style OCR fill:#16a34a,color:#fff
+    style STR fill:#16a34a,color:#fff
 ```
 
-**Query** is the most flexible — it handles any natural language question about the image and uses Moondream 3's reasoning mode to "think" before answering. Good for complex or nuanced questions.
+**Query** is the most flexible — it handles any natural language question about the image. By default it uses Moondream 3's reasoning mode, where the model "thinks" before answering. The orchestrator disables reasoning for simple factual questions (like "what color is the sky?") to save time.
 
 **Caption** generates a text description at three levels of detail: short (one-liner), normal (a sentence or two), or long (detailed paragraph). The orchestrator picks the length based on how you phrase it ("brief description" → short, "describe in detail" → long).
 
-**Detect** finds all instances of a given object and returns bounding box coordinates normalized to 0–1. The renderer converts these to pixel coordinates and draws semi-transparent colored rectangles on a copy of the image. Each box gets a label, and colors cycle through 8 distinct values when multiple objects are found.
+**Detect** finds all instances of a given object and returns bounding box coordinates normalized to 0–1. The renderer converts these to pixel coordinates and draws semi-transparent colored rectangles on a copy of the image. Each box gets a label, and colors cycle through 8 distinct values when multiple objects are found. Raw coordinate data is shown in a collapsible block below the annotated image.
 
-**Point** locates objects by their center point, also normalized to 0–1. The renderer draws crosshair markers with contrasting rings (white outer, red inner) so they're visible on any background. Useful when you want precise location rather than a bounding region.
+**Point** locates objects by their center point, also normalized to 0–1. The renderer draws crosshair markers with contrasting rings (white outer, red inner) so they're visible on any background. Useful when you want precise location rather than a bounding region. Raw point data is also shown in a collapsible block.
+
+**OCR & Text Extraction** — Moondream 3 has strong OCR capabilities. Ask "read the text", "OCR this", or "what does the sign say?" and the orchestrator routes to query with reasoning disabled for fast extraction. You can also ask "convert to markdown" to get formatted output from tables, documents, or screenshots.
+
+**Structured Output** — Moondream 3 natively generates JSON, CSV, XML, and markdown when you include the format in your prompt. Ask "extract a JSON array with keys: name, color, position" and it returns structured data directly. This is handled via query — Moondream parses the prompt format instructions itself.
+
+> [!TIP]
+> For detect and point results, expand the "Raw data" section below the annotated image to see the exact normalized coordinates returned by Moondream. This is useful for building on top of the API or debugging detection accuracy.
 
 All coordinates from Moondream are normalized — values between 0 and 1, where (0,0) is top-left and (1,1) is bottom-right. The renderer handles the conversion to actual pixel positions based on the image dimensions.
 
 ## How the Orchestrator Works
 
-The orchestrator sends a lean system prompt (~180 tokens) to Qwen 3 4B with few-shot examples that teach the JSON output format. Ollama's structured output feature constrains the response to match a predefined JSON schema, so parsing never fails.
+The orchestrator sends a lean system prompt to Qwen 3 4B Instruct with few-shot examples that teach the JSON output format — including OCR, structured output, and reasoning flag examples. Ollama's structured output feature constrains the response to match a predefined JSON schema, so parsing never fails.
 
 ```mermaid
 graph LR
@@ -238,13 +251,18 @@ Opens at `http://localhost:7860`. Upload an image and start chatting.
 | You type | What happens |
 |---|---|
 | *(just upload, no text)* | Auto-generates a description |
-| "What's happening in this photo?" | Visual QA with reasoning |
+| "What's happening in this photo?" | Visual QA with reasoning enabled |
+| "What color is the sky?" | Visual QA with reasoning disabled (fast) |
 | "Describe this image in detail" | Long-form caption |
 | "Give me a short caption" | Brief one-liner |
-| "Find all people" | Bounding boxes drawn around each person |
-| "How many cars are there?" | Detection with count |
-| "Where's the dog?" | Crosshair marker on the dog |
+| "Find all people" | Bounding boxes + raw coordinate data |
+| "How many cars are there?" | Detection with count + collapsible coordinates |
+| "Where's the dog?" | Crosshair marker + raw point data |
 | "Point to the red button" | Precise location marker |
+| "Read all the text in this image" | OCR text extraction |
+| "Convert to markdown" | OCR with markdown formatting (tables, headings) |
+| "Extract a JSON array with keys: name, color" | Structured JSON output |
+| "What does the sign say?" | Quick text reading (no reasoning) |
 | "Find the tools and describe the biggest one" | Multi-step: detect + query |
 | "What is it?" *(after discussing a hammer)* | Context-aware follow-up |
 
@@ -304,7 +322,12 @@ The system prompt in `SYSTEM_PROMPT` is tuned to be small (~180 tokens) for 4B-c
 
 A 9B-parameter Mixture-of-Experts vision-language model. It dynamically routes tokens across 64 experts, activating only 8 per inference. This keeps latency low while maintaining high accuracy. It has a 32K context window and uses a SigLIP-based vision encoder with multi-crop channel concatenation for token-efficient high-resolution image processing.
 
+Key features we use: visual QA with toggleable reasoning mode, image captioning, object detection (bounding boxes), object pointing (center coordinates), OCR/text extraction, and native structured output (JSON, markdown, CSV, XML). The `encode_image()` method lets us encode once and reuse across multiple queries on the same image for better performance.
+
 On Apple Silicon, Moondream Station uses MLX for native acceleration with quantized weights. You need at least 16GB of unified memory.
+
+> [!NOTE]
+> Moondream 3 also supports [segmentation](https://docs.moondream.ai/skills/segment/) (SVG path masks), but this is currently a cloud-only preview and not yet available in Moondream Station.
 
 [Model announcement](https://moondream.ai/blog/moondream-3-preview) · [HuggingFace weights](https://huggingface.co/moondream/moondream3-preview) · [Documentation](https://docs.moondream.ai/)
 

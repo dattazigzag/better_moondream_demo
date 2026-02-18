@@ -47,23 +47,53 @@ class MoondreamClient:
         except Exception:
             return False
 
-    def query(self, image: Image.Image, question: str) -> dict:
+    def encode_image(self, image: Image.Image):
+        """
+        Pre-encode an image for reuse across multiple calls.
+
+        Moondream spends a significant portion of inference time encoding
+        the image. Encoding once and reusing the result across query,
+        caption, detect, and point calls on the same image gives a
+        meaningful speedup.
+
+        Returns:
+            An encoded image object, or None on failure.
+        """
+        try:
+            log.debug("Encoding image for reuse...")
+            start = time.time()
+            encoded = self.model.encode_image(image)
+            elapsed = (time.time() - start) * 1000
+            log.debug(f"Image encoded ({elapsed:.0f}ms)")
+            return encoded
+        except Exception as e:
+            log.warning(f"encode_image failed, will use raw image: {e}")
+            return None
+
+    def query(self, image, question: str, reasoning: bool = True) -> dict:
         """
         Ask a question about an image (visual question answering).
 
         Uses reasoning mode by default — Moondream 3 will "think"
         before answering, which produces better results for complex
-        questions. For simple factual questions, the model still
-        responds quickly.
+        questions. Disable reasoning for simple factual queries, OCR,
+        and structured output requests (JSON, markdown, CSV) where
+        chain-of-thought adds latency without improving quality.
+
+        Args:
+            image: PIL Image or pre-encoded image from encode_image().
+            question: The question or prompt to send.
+            reasoning: Whether to enable Moondream's reasoning mode.
 
         Returns:
             {"answer": "the model's response"}
             or {"error": "description"} on failure
         """
         try:
-            log.info(f'query("{question}")')
+            mode = "reasoning" if reasoning else "direct"
+            log.info(f'query("{question}") [{mode}]')
             start = time.time()
-            result = self.model.query(image, question)
+            result = self.model.query(image, question, reasoning=reasoning)
             elapsed = (time.time() - start) * 1000
             log.info(f"query result ({elapsed:.0f}ms): {str(result['answer'])[:120]}")  # type: ignore
             return {"answer": result["answer"]}  # type: ignore
@@ -71,7 +101,7 @@ class MoondreamClient:
             log.error(f"Query failed: {e}")
             return {"error": f"Query failed: {e}"}
 
-    def caption(self, image: Image.Image, length: str = "normal") -> dict:
+    def caption(self, image, length: str = "normal") -> dict:
         """
         Generate a text description of the image.
 
@@ -101,7 +131,7 @@ class MoondreamClient:
             log.error(f"Caption failed: {e}")
             return {"error": f"Caption failed: {e}"}
 
-    def detect(self, image: Image.Image, subject: str) -> dict:
+    def detect(self, image, subject: str) -> dict:
         """
         Detect objects in the image matching the subject.
 
@@ -128,7 +158,7 @@ class MoondreamClient:
             log.error(f"Detection failed: {e}")
             return {"error": f"Detection failed: {e}"}
 
-    def point(self, image: Image.Image, subject: str) -> dict:
+    def point(self, image, subject: str) -> dict:
         """
         Locate objects by their center point.
 
