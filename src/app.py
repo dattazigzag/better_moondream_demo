@@ -69,28 +69,37 @@ def create_app() -> gr.Blocks:
                 )
 
         if current_image is None:
-            # Search history backwards for the last user-uploaded image
+            # Search history backwards for the last user-uploaded image.
+            # In Gradio 6, content is a list of content blocks:
+            #   [{"type": "text", "text": "..."}, {"type": "file", "file": {"path": "..."}}]
             for msg in reversed(history):
-                if msg.get("role") == "user":
-                    content = msg.get("content")
-                    # Image messages have a dict content with a "path" key
-                    if isinstance(content, dict) and "path" in content:
+                if msg.get("role") != "user":
+                    continue
+                content = msg.get("content")
+                if not isinstance(content, list):
+                    continue
+                for block in content:
+                    if not isinstance(block, dict):
+                        continue
+                    # Gradio 6 file block format
+                    if block.get("type") == "file":
+                        file_info = block.get("file", {})
+                        path = file_info.get("path") if isinstance(file_info, dict) else None
+                        if path:
+                            try:
+                                current_image = Image.open(path).convert("RGB")
+                                break
+                            except Exception:
+                                continue
+                    # Fallback: direct path key (for compatibility)
+                    if "path" in block:
                         try:
-                            current_image = Image.open(content["path"]).convert("RGB")
+                            current_image = Image.open(block["path"]).convert("RGB")
                             break
                         except Exception:
                             continue
-                    # Also check for file paths stored as tuples (older format)
-                    if isinstance(content, (list, tuple)):
-                        for item in content:
-                            if isinstance(item, dict) and "path" in item:
-                                try:
-                                    current_image = Image.open(item["path"]).convert(
-                                        "RGB"
-                                    )
-                                    break
-                                except Exception:
-                                    continue
+                if current_image is not None:
+                    break
 
         # No image anywhere — can't do vision tasks
         if current_image is None:
@@ -176,7 +185,6 @@ def create_app() -> gr.Blocks:
     # --- Build the interface ---
     app = gr.ChatInterface(
         fn=handle_message,
-        type="messages", # type: ignore
         multimodal=True,
         theme="hmb/amethyst", # type: ignore
         title="Moondream Chat",
