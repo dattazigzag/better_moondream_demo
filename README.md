@@ -459,6 +459,18 @@ A 4B-parameter language model from Alibaba's Qwen team. Used here purely as an i
 
 [Ollama page](https://ollama.com/library/qwen3:4b-instruct-2507-q4_K_M) · [Qwen 3 announcement](https://qwenlm.github.io/blog/qwen3/)
 
+## Future: Multi-User on LAN
+
+The app is designed to run on a local network AI server (`0.0.0.0` binding), and multiple people can use it simultaneously without any code changes.
+
+**Gradio** handles concurrent users natively — each browser session gets its own isolated state with separate chat history and image context. Five people opening the app from different machines on the LAN each get their own independent conversation.
+
+**Ollama** queues concurrent requests internally. Orchestrator calls are fast (sub-500ms), so even with several users the queue clears quickly.
+
+**Moondream Station** is the bottleneck. It runs on one GPU/accelerator and processes inference sequentially. If user A sends a detect request and user B sends a query at the same time, B waits until A finishes. For typical requests (1–3 seconds each), this is invisible with a small team (2–8 people) since users naturally stagger their requests — someone's typing while someone else is reading results.
+
+**If it ever becomes a problem:** Run multiple Moondream Station instances on different ports (if you have multiple GPUs or machines) and add round-robin distribution in `client.py`. But for smaller situations, the single-instance setup can handle concurrent usage just fine.
+
 ## License
 
 [MIT](LICENSE)
