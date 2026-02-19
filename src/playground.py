@@ -40,14 +40,6 @@ CUSTOM_CSS = """
     max-height: 50vh !important;
 }
 
-/* Raw JSON: wrap long lines, expand vertically */
-#raw-json-output * {
-    white-space: pre-wrap !important;
-    word-break: break-word !important;
-    max-height: none !important;
-    overflow-x: hidden !important;
-}
-
 /* Footer */
 .app-footer {
     text-align: center;
@@ -99,8 +91,21 @@ TASK_DESCRIPTIONS = {
 
 
 def _raw_json_block(data: dict) -> str:
-    """Format raw result data as pretty-printed JSON."""
-    return json.dumps(data, indent=2)
+    """Format raw result data as pretty-printed JSON.
+
+    If any value is itself a JSON string, parse it first so
+    the output is fully expanded rather than a single escaped line.
+    """
+    cleaned = {}
+    for k, v in data.items():
+        if isinstance(v, str):
+            try:
+                cleaned[k] = json.loads(v)
+            except (json.JSONDecodeError, ValueError):
+                cleaned[k] = v
+        else:
+            cleaned[k] = v
+    return json.dumps(cleaned, indent=2)
 
 
 def create_app() -> gr.Blocks:
@@ -216,7 +221,6 @@ def create_app() -> gr.Blocks:
                         label="Raw response data",
                         language="json",
                         interactive=False,
-                        elem_id="raw-json-output",
                     )
 
         # ── Task selection: toggle input visibility ──────────

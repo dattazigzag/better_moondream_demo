@@ -16,8 +16,7 @@ Two interfaces for visual understanding, both running entirely on your machine w
 
 | Captioning | VQA (Query) | BBOx Detection | Pointing | OCR Extraction |
 | --- | --- | --- | --- | --- |
-| ![alt text](<assets/Screenshot 2026-02-19 at 12.49.24.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.49.08.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.47.33.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.47.00.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 13.01.11.png>) |
-
+| ![alt text](<assets/Screenshot 2026-02-19 at 12.49.24.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.49.08.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.47.33.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.47.00.png>) |  ![alt text](<assets/Screenshot 2026-02-19 at 13.19.45.png>) |
 
 ## Chat Interface
 
