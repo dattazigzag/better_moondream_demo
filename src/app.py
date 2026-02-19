@@ -190,15 +190,20 @@ def create_app() -> gr.Blocks:
     def handle_message(
         message: dict,
         history: list[dict],
-    ) -> list[gr.ChatMessage]:
+    ):
         """
-        Process a user message and return the assistant's response.
+        Process a user message and yield the assistant's response.
+
+        This is a generator so Gradio can show a stop button and
+        cancel between pipeline stages. Each yield replaces the
+        previous assistant response in the chat — Gradio keeps the
+        last yielded value when the generator finishes or is stopped.
 
         Flow:
         1. Extract image from the message (or find in history)
-        2. Send text to the LLM orchestrator for intent parsing
-        3. Execute each action against Moondream
-        4. Return formatted results (text and/or annotated images)
+        2. Yield a "thinking" status while the LLM parses intent
+        3. For each action, yield a "running" status then the result
+        4. Final yield contains all accumulated responses
         """
         text = message.get("text", "").strip()
         files = message.get("files", [])
@@ -214,12 +219,13 @@ def create_app() -> gr.Blocks:
                 log.info(f"Loaded uploaded image: {current_image.size[0]}x{current_image.size[1]}")
             except Exception as e:
                 log.error(f"Failed to open uploaded image: {e}")
-                return [
+                yield [
                     gr.ChatMessage(
                         role="assistant",
                         content=f"Could not open that image: {e}",
                     )
                 ]
+                return
 
         if current_image is None:
             current_image = _find_image_in_history(history)
@@ -228,7 +234,7 @@ def create_app() -> gr.Blocks:
 
         if current_image is None:
             log.warning("No image available")
-            return [
+            yield [
                 gr.ChatMessage(
                     role="assistant",
                     content=(
@@ -237,6 +243,7 @@ def create_app() -> gr.Blocks:
                     ),
                 )
             ]
+            return
 
         # No text but an image was uploaded — default to caption
         if not text:
@@ -252,22 +259,32 @@ def create_app() -> gr.Blocks:
 
         if orch_result.error:
             log.error(f"Orchestrator error: {orch_result.error}")
-            return [
+            yield [
                 gr.ChatMessage(role="assistant", content=f"Sorry, something went wrong: {orch_result.error}")
             ]
+            return
 
         # --- Execute each action ---
         all_responses: list[gr.ChatMessage] = []
+        total_steps = len(orch_result.actions)
 
         for i, action in enumerate(orch_result.actions):
-            if len(orch_result.actions) > 1:
-                log.info(f"Executing step {i + 1}/{len(orch_result.actions)}: {action.action}")
+            step_label = f"Step {i + 1}/{total_steps}: " if total_steps > 1 else ""
+            log.info(f"Executing {step_label}{action.action}")
+
+            # Yield results collected so far before each Moondream call.
+            # Gradio shows its native processing indicator while we block.
+            # If the user presses stop, the generator stops here —
+            # they keep the results collected so far.
+            if all_responses:
+                yield all_responses
 
             responses = _execute_action(action, working_image, current_image, client)
             all_responses.extend(responses)
 
+        # Final yield — all results, no status indicator
         log.info(f"Returning {len(all_responses)} message(s) to chat")
-        return all_responses
+        yield all_responses
 
     # --- Build the interface ---
     chatbot = gr.Chatbot(
@@ -290,6 +307,7 @@ def create_app() -> gr.Blocks:
             file_count="single",
             placeholder="Ask about your image, or upload a new one...",
             sources=["upload"],
+            stop_btn="■",
         ),
         examples=[
             # Vision QA

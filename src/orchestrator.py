@@ -45,17 +45,36 @@ User: "Give me a detailed description" → {"action":"caption","length":"long"}
 User: "Find all cars" → {"action":"detect","subject":"cars"}
 User: "How many people are there?" → {"action":"detect","subject":"people"}
 User: "Where's the dog?" → {"action":"point","subject":"dog"}
+User: "Point to the biggest item" → {"action":"point","subject":"biggest item"}
 User: "Read the text" → {"action":"query","question":"Read all visible text in this image.","reasoning":false}
 User: "Convert to markdown" → {"action":"query","question":"Convert the content of this image to markdown.","reasoning":false}
 User: "Extract a JSON with keys: name, color" → {"action":"query","question":"A JSON array with keys: name, color.","reasoning":false}
 User: "OCR this" → {"action":"query","question":"Extract all text visible in this image.","reasoning":false}
 User: "What does the sign say?" → {"action":"query","question":"What does the sign say?","reasoning":false}
-User: "Find the cars and describe the red one" → {"action":"multi","steps":[{"action":"detect","subject":"cars"},{"action":"query","question":"Describe the red car","reasoning":true}]}
+User: "Is he wearing glasses?" → {"action":"query","question":"Is he wearing glasses?","reasoning":false}
+User: "Show me his glasses" → {"action":"detect","subject":"glasses"}
+User: "Show me" (previous topic: glasses) → {"action":"detect","subject":"glasses"}
+User: "Where are they?" (previous topic: cats) → {"action":"point","subject":"cats"}
+User: "Point to it" (previous topic: red button) → {"action":"point","subject":"red button"}
 User: "What is it?" (previous topic: hammer) → {"action":"query","question":"What is the hammer?","reasoning":true}
+User: "Highlight all the clothing" → {"action":"detect","subject":"clothing"}
+User: "Highlight all clothes with their colors" → {"action":"multi","steps":[{"action":"detect","subject":"clothing"},{"action":"query","question":"What are the colors of each clothing item visible in this image?","reasoning":true}]}
+User: "What colors are the clothes?" → {"action":"query","question":"What colors are the clothes?","reasoning":true}
+User: "Show me all items and describe them" → {"action":"multi","steps":[{"action":"detect","subject":"items"},{"action":"query","question":"Describe each item visible in the image","reasoning":true}]}
+User: "Find the cars and describe the red one" → {"action":"multi","steps":[{"action":"detect","subject":"cars"},{"action":"query","question":"Describe the red car","reasoning":true}]}
+User: "Detect all objects and count them" → {"action":"multi","steps":[{"action":"detect","subject":"objects"},{"action":"query","question":"How many distinct objects are in this image?","reasoning":true}]}
+User: "Highlight his sweater, pants, and glasses" → {"action":"multi","steps":[{"action":"detect","subject":"sweater"},{"action":"detect","subject":"pants"},{"action":"detect","subject":"glasses"}]}
+User: "Find the cat and the dog" → {"action":"multi","steps":[{"action":"detect","subject":"cat"},{"action":"detect","subject":"dog"}]}
 
 Rules:
-- If user says "it"/"that"/"this one", resolve from context and put the full question in the output.
-- For counting questions, use detect (bounding boxes show the count).
+- IMPORTANT: detect and point take ONE subject per call. If the user lists multiple items (e.g. "sweater, pants, and glasses"), create a separate detect/point step for EACH item using multi.
+- If user says "it"/"that"/"this one"/"them"/"show me", resolve the subject from conversation context.
+- "Show me", "find", "locate", "highlight", "mark" + an object → detect or point, NOT caption or query.
+- When user asks to "show/highlight X" AND also wants attributes (colors, descriptions), use multi: detect first, then query for the attributes.
+- For counting questions, use detect (bounding boxes make the count visual).
+- For yes/no or simple factual questions ("Is there a...", "Does it have...") → query with reasoning=false.
+- reasoning=true: complex questions, spatial relationships, counting, chart analysis, multi-object reasoning.
+- reasoning=false: simple yes/no, color identification, OCR, text extraction, structured output (JSON/markdown/CSV).
 - For OCR, text extraction, markdown/JSON/CSV conversion: use query with reasoning=false.
 - Pass the user's prompt phrasing to question — the vision model handles structured output formats natively.
 - When unsure, default to query with reasoning=true.
