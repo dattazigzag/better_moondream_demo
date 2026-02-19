@@ -446,11 +446,14 @@ better_moondream_demo/
     ├── app.py             Gradio chat interface (--mode chat)
     ├── playground.py      Gradio playground interface (--mode playground)
     ├── orchestrator.py    LLM-powered intent parsing via Ollama
-    ├── client.py          Moondream Station client wrapper (query, caption, detect, point)
+    ├── client.py          Moondream Station client wrapper (query, caption, detect, point, + segment future)
     ├── intent.py          Regex fallback parser (used when Ollama is down)
-    ├── renderer.py        Draws bounding boxes and point markers on images
+    ├── renderer.py        Draws bounding boxes, point markers, + segment mask renderer (future)
     └── logger.py          Loguru-based colored terminal logging
 ```
+
+> [!NOTE]
+> Both `client.py` and `renderer.py` contain segment-related code (marked with `FUTURE` comment blocks) that is currently unused. Moondream Station doesn't support segment locally yet — it's a cloud-only preview. The code is kept so it can be wired up when Station adds local support without needing to rewrite anything.
 
 ## Dependencies
 

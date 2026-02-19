@@ -40,6 +40,14 @@ CUSTOM_CSS = """
     max-height: 50vh !important;
 }
 
+/* Raw JSON: wrap long lines, expand vertically */
+#raw-json-output * {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+}
+
 /* Footer */
 .app-footer {
     text-align: center;
@@ -208,6 +216,7 @@ def create_app() -> gr.Blocks:
                         label="Raw response data",
                         language="json",
                         interactive=False,
+                        elem_id="raw-json-output",
                     )
 
         # ── Task selection: toggle input visibility ──────────
