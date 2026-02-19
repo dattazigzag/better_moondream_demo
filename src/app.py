@@ -47,6 +47,16 @@ CUSTOM_CSS = """
 .chatbot .user img {
     max-height: 40vh !important;
 }
+
+/* Footer */
+.app-footer {
+    text-align: center;
+    padding: 16px 0 8px;
+    font-size: 0.85em;
+    opacity: 0.6;
+}
+.app-footer a { text-decoration: none; }
+.app-footer a:hover { text-decoration: underline; }
 """
 
 
@@ -287,45 +297,55 @@ def create_app() -> gr.Blocks:
         yield all_responses
 
     # --- Build the interface ---
-    chatbot = gr.Chatbot(
-        height="75vh",
-        placeholder="Upload an image and start chatting...",
-    )
+    with gr.Blocks() as app:
+        chatbot = gr.Chatbot(
+            height="75vh",
+            placeholder="Upload an image and start chatting...",
+        )
 
-    app = gr.ChatInterface(
-        fn=handle_message,
-        multimodal=True,
-        chatbot=chatbot,
-        title="Moondream Chat",
-        description=(
-            "Upload an image and chat with it. Ask questions, detect objects, "
-            "extract text (OCR), get structured data (JSON/markdown), or "
-            "locate specific things. Powered by Moondream 3 + Qwen 3 4B."
-        ),
-        textbox=gr.MultimodalTextbox(
-            file_types=["image"],
-            file_count="single",
-            placeholder="Ask about your image, or upload a new one...",
-            sources=["upload"],
-            stop_btn="■",
-        ),
-        examples=[
-            # Vision QA
-            {"text": "What's happening in this image?"},
-            {"text": "Describe this image in detail"},
-            # Detection & pointing
-            {"text": "Find all people"},
-            {"text": "Point to the largest item"},
-            {"text": "How many chairs are there?"},
-            # OCR & text extraction
-            {"text": "Read all the text in this image"},
-            {"text": "Convert the text to markdown"},
-            # Structured output
-            {"text": "Extract a JSON array with keys: object, color, position"},
-            # Multi-step
-            {"text": "Find all the objects and describe the most interesting one"},
-        ],
-    )
+        gr.ChatInterface(
+            fn=handle_message,
+            multimodal=True,
+            chatbot=chatbot,
+            title="Moondream Chat",
+            description=(
+                "Upload an image and chat with it. Ask questions, detect objects, "
+                "extract text (OCR), get structured data (JSON/markdown), or "
+                "locate specific things. Powered by Moondream 3 + Qwen 3 4B."
+            ),
+            textbox=gr.MultimodalTextbox(
+                file_types=["image"],
+                file_count="single",
+                placeholder="Ask about your image, or upload a new one...",
+                sources=["upload"],
+                stop_btn="■",
+            ),
+            examples=[
+                # Vision QA
+                {"text": "What's happening in this image?"},
+                {"text": "Describe this image in detail"},
+                # Detection & pointing
+                {"text": "Find all people"},
+                {"text": "Point to the largest item"},
+                {"text": "How many chairs are there?"},
+                # OCR & text extraction
+                {"text": "Read all the text in this image"},
+                {"text": "Convert the text to markdown"},
+                # Structured output
+                {"text": "Extract a JSON array with keys: object, color, position"},
+                # Multi-step
+                {"text": "Find all the objects and describe the most interesting one"},
+            ],
+        )
+
+        # ── Footer ────────────────────────────────────────
+        gr.HTML(
+            '<div class="app-footer">'
+            '<a href="https://zigzag.is/en" target="_blank">zigzag.is</a>'
+            " &middot; "
+            '<a href="mailto:datta@zigzag.is">Saurabh Datta</a>'
+            "</div>"
+        )
 
     return app
 

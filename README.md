@@ -128,9 +128,9 @@ All coordinates from Moondream are normalized — values between 0 and 1, where 
 
 Moondream 3's full API surface is broader than what's available through Moondream Station. Knowing the boundaries matters because the orchestrator can only route to capabilities that actually work locally.
 
-**Available locally (Chat toolkit):** `query`, `detect`, `point`, `caption`. These four cover the vast majority of visual understanding tasks — question answering, object localization, text extraction, structured output, and image description. The Chat orchestrator routes to these automatically.
+**Available locally (our toolkit):** `query`, `detect`, `point`, `caption`. These four cover the vast majority of visual understanding tasks — question answering, object localization, text extraction, structured output, and image description. Both Chat and Playground use these. The Playground also surfaces OCR as a dedicated task (internally it's `query` with a text extraction prompt and reasoning disabled).
 
-**Available locally (Playground only):** `segment` returns SVG path masks for pixel-level object boundaries. It's exposed in the Playground where you can call it directly, but the Chat orchestrator doesn't route to it automatically — segmentation prompts are too nuanced for the 4B orchestrator to classify reliably. If your Moondream Station version doesn't support segment, the Playground shows a clear error message rather than failing silently.
+**Cloud-only (not available in Station):** `segment` returns SVG path masks for pixel-level object boundaries. It's a cloud preview feature — Station returns `Function 'segment' not available` when you try it locally. If a user asks "outline the car" or "mask the background" in Chat, the system falls back to `detect` (bounding boxes) as the closest local approximation.
 
 **Experimental:** `gaze` estimates where a person is looking. It exists in the API docs but isn't reliable enough to route to by default.
 
@@ -210,14 +210,14 @@ uv run python main.py --mode playground --port 4030
 The interface is a single page with everything visible at once — no tabs hiding capabilities, no buried settings. The layout:
 
 - **Image upload** at the top (shared across all tasks — upload once, switch tasks freely)
-- **Task selector** as radio buttons: Caption · Query · Detect · Point · Segment
+- **Task selector** as radio buttons: Caption · Query · Detect · Point · OCR
 - **Task-specific inputs** that appear based on your selection — each with descriptions and placeholder text explaining what to enter
 - **Run button** — one click, one result
-- **Output panel** — text result on top, annotated image below (for detect/point/segment), and a collapsible raw JSON section with the exact data Moondream returned
+- **Output panel** — text result on top, annotated image below (for detect/point), and a collapsible raw JSON section with the exact data Moondream returned
 
 **When to use Playground over Chat:**
 
-The Playground is better when you already know which capability you want. "I want to run detect on 'street signs'" is faster in Playground — no orchestrator overhead, no risk of misrouting. It's also the only way to access segment locally, since the Chat orchestrator doesn't route to it.
+The Playground is better when you already know which capability you want. "I want to run detect on 'street signs'" is faster in Playground — no orchestrator overhead, no risk of misrouting. The dedicated OCR task with plain text / markdown format toggle is also more discoverable here than in Chat, where you'd need to phrase your request as "read the text" or "convert to markdown".
 
 Chat is better for exploration and compound tasks. "Find all the cars and tell me about the red one" requires two Moondream calls (detect + query) stitched together — Chat handles that automatically, while Playground would need you to run each step manually.
 
@@ -432,9 +432,9 @@ better_moondream_demo/
     ├── app.py             Gradio chat interface (--mode chat)
     ├── playground.py      Gradio playground interface (--mode playground)
     ├── orchestrator.py    LLM-powered intent parsing via Ollama
-    ├── client.py          Moondream Station client wrapper (query, caption, detect, point, segment)
+    ├── client.py          Moondream Station client wrapper (query, caption, detect, point)
     ├── intent.py          Regex fallback parser (used when Ollama is down)
-    ├── renderer.py        Draws bounding boxes, point markers, and segment masks
+    ├── renderer.py        Draws bounding boxes and point markers on images
     └── logger.py          Loguru-based colored terminal logging
 ```
 
@@ -478,12 +478,12 @@ The system prompt in `SYSTEM_PROMPT` is tuned to be small (~180 tokens) for 4B-c
 
 A 9B-parameter Mixture-of-Experts vision-language model. It dynamically routes tokens across 64 experts, activating only 8 per inference. This keeps latency low while maintaining high accuracy. It has a 32K context window and uses a SigLIP-based vision encoder with multi-crop channel concatenation for token-efficient high-resolution image processing.
 
-Key features we use: visual QA with toggleable reasoning mode, image captioning, object detection (bounding boxes), object pointing (center coordinates), segmentation (SVG path masks via Playground), OCR/text extraction, and native structured output (JSON, markdown, CSV, XML). The `encode_image()` method lets us encode once and reuse across multiple queries on the same image for better performance.
+Key features we use: visual QA with toggleable reasoning mode, image captioning, object detection (bounding boxes), object pointing (center coordinates), OCR/text extraction, and native structured output (JSON, markdown, CSV, XML). The `encode_image()` method lets us encode once and reuse across multiple queries on the same image for better performance.
 
 On Apple Silicon, Moondream Station uses MLX for native acceleration with quantized weights. You need at least 16GB of unified memory.
 
 > [!NOTE]
-> Moondream 3's [segmentation](https://docs.moondream.ai/skills/segment/) capability is available in the Playground but not routed to by the Chat orchestrator. Support depends on your Moondream Station version — if segment isn't available, the Playground will show a descriptive error rather than failing silently.
+> Moondream 3 also supports [segmentation](https://docs.moondream.ai/skills/segment/) (SVG path masks), but this is currently a cloud-only preview — Station returns `Function 'segment' not available` when called locally.
 
 [Model announcement](https://moondream.ai/blog/moondream-3-preview) · [HuggingFace weights](https://huggingface.co/moondream/moondream3-preview) · [Documentation](https://docs.moondream.ai/)
 

@@ -39,6 +39,16 @@ CUSTOM_CSS = """
 #input-image img {
     max-height: 50vh !important;
 }
+
+/* Footer */
+.app-footer {
+    text-align: center;
+    padding: 16px 0 8px;
+    font-size: 0.85em;
+    opacity: 0.6;
+}
+.app-footer a { text-decoration: none; }
+.app-footer a:hover { text-decoration: underline; }
 """
 
 # ── Task definitions ─────────────────────────────────────────────
@@ -418,6 +428,15 @@ def create_app() -> gr.Blocks:
                 output_raw,
                 raw_accordion,
             ],
+        )
+
+        # ── Footer ────────────────────────────────────────
+        gr.HTML(
+            '<div class="app-footer">'
+            '<a href="https://zigzag.is/en" target="_blank">zigzag.is</a>'
+            " &middot; "
+            '<a href="mailto:datta@zigzag.is">Saurabh Datta</a>'
+            "</div>"
         )
 
     return app
