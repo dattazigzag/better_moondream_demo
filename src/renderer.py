@@ -196,7 +196,13 @@ def draw_points(
     return annotated
 
 
-# ── Segment mask colour ──────────────────────────────────────────
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# FUTURE: Segment mask rendering — currently unused because
+# Moondream Station doesn't support segment locally (cloud-only).
+# Station returns: {'error': "Function 'segment' not available"}
+# Kept for when Station adds local segment support.
+# See also: client.py → MoondreamClient.segment()
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 SEGMENT_COLOR = (75, 150, 255)  # blue mask overlay
 

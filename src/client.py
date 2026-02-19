@@ -374,6 +374,13 @@ class MoondreamClient:
             log.error(f"Pointing failed: {e}")
             return {"error": f"Pointing failed: {e}"}
 
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # FUTURE: Segment — currently cloud-only (not available in
+    # Moondream Station). Station returns:
+    #   {'error': "Function 'segment' not available"}
+    # This method is kept for when Station adds local segment
+    # support. Nothing calls it right now.
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     def segment(self, image, prompt: str) -> dict:
         """
         Segment an object in the image using a text prompt.

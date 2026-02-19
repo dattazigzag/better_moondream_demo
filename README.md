@@ -1,13 +1,28 @@
 # Moondream Chat & Playground
 
-## PLayground
+![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
+![Gradio 6](https://img.shields.io/badge/gradio-6.x-orange.svg)
+![Ollama](https://img.shields.io/badge/ollama-0.16+-blueviolet.svg)
+![macOS](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-lightgrey.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+
+
+Two interfaces for visual understanding, both running entirely on your machine with no data leaving your computer.
+
+
+## Playground
+
+**Playground** is the direct mode. No LLM in the loop. You pick exactly which Moondream capability to run (caption, query, detect, point, or OCR), fill in the inputs, and hit Run. It's the tool for when you know what you want and don't need an orchestrator guessing.
 
 | Captioning | VQA (Query) | BBOx Detection | Pointing | OCR Extraction |
 | --- | --- | --- | --- | --- |
-| ![alt text](<assets/Screenshot 2026-02-19 at 12.49.24.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.49.08.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.47.33.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.47.00.png>) | |
+| ![alt text](<assets/Screenshot 2026-02-19 at 12.49.24.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.49.08.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.47.33.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.47.00.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 13.01.11.png>) |
 
 
 ## Chat Interface
+
+It is the conversational mode. Two AI models work together: [Moondream 3](https://moondream.ai/blog/moondream-3-preview) handles vision tasks (understanding images, detecting objects, reading text), while [Qwen 3 4B Instruct](https://ollama.com/library/qwen3:4b-instruct-2507-q4_K_M) acts as a language orchestrator that interprets what you're asking for and routes to the right capability. You just talk naturally — "find all the cars and describe the red one" — and the system figures out the rest.
+
 
 | Description | Object Detection | Object Detection | Object Pointing |
 | --- | --- | --- | --- |
@@ -18,17 +33,7 @@
 | --- | --- | --- | --- |
 | ![alt text](<assets/Screenshot 2026-02-18 at 21.12.04.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.54.56.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.50.56.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.50.58.png>) |
 
-Two interfaces for visual understanding, both running entirely on your machine with no data leaving your computer.
 
-**Chat** is the conversational mode. Two AI models work together: [Moondream 3](https://moondream.ai/blog/moondream-3-preview) handles vision tasks (understanding images, detecting objects, reading text), while [Qwen 3 4B Instruct](https://ollama.com/library/qwen3:4b-instruct-2507-q4_K_M) acts as a language orchestrator that interprets what you're asking for and routes to the right capability. You just talk naturally — "find all the cars and describe the red one" — and the system figures out the rest.
-
-**Playground** is the direct mode. No LLM in the loop. You pick exactly which Moondream capability to run (caption, query, detect, point, or OCR), fill in the inputs, and hit Run. It's the tool for when you know what you want and don't need an orchestrator guessing.
-
-![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
-![Gradio 6](https://img.shields.io/badge/gradio-6.x-orange.svg)
-![Ollama](https://img.shields.io/badge/ollama-0.16+-blueviolet.svg)
-![macOS](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-lightgrey.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ---
 
