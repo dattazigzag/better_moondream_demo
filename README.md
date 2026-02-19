@@ -1,5 +1,14 @@
 # Moondream Chat & Playground
 
+## PLayground
+
+| Captioning | VQA (Query) | BBOx Detection | Pointing | OCR Extraction |
+| --- | --- | --- | --- | --- |
+| ![alt text](<assets/Screenshot 2026-02-19 at 12.49.24.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.49.08.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.47.33.png>) | ![alt text](<assets/Screenshot 2026-02-19 at 12.47.00.png>) | |
+
+
+## Chat Interface
+
 | Description | Object Detection | Object Detection | Object Pointing |
 | --- | --- | --- | --- |
 | ![alt text](<assets/Screenshot 2026-02-18 at 19.58.06.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.01.10.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.01.49.png>) | ![alt text](<assets/Screenshot 2026-02-18 at 20.02.31.png>) |
