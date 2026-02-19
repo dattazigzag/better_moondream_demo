@@ -122,6 +122,81 @@ graph TD
 
 All coordinates from Moondream are normalized — values between 0 and 1, where (0,0) is top-left and (1,1) is bottom-right. The renderer handles the conversion to actual pixel positions based on the image dimensions.
 
+## What Moondream Can and Can't Do Locally
+
+Moondream 3's full API surface is broader than what's available through Moondream Station. Knowing the boundaries matters because the orchestrator can only route to capabilities that actually work locally.
+
+**Available locally (our toolkit):** `query`, `detect`, `point`, `caption`. These four cover the vast majority of visual understanding tasks — question answering, object localization, text extraction, structured output, and image description.
+
+**Cloud-only (not available in Station):** `segment` returns SVG path masks for pixel-level object boundaries. It's a cloud preview feature and Station doesn't expose it. If a user asks "outline the car" or "mask the background", the system falls back to `detect` (bounding boxes) as the closest local approximation.
+
+**Experimental:** `gaze` estimates where a person is looking. It exists in the API docs but isn't reliable enough to route to by default.
+
+**Single-subject constraint:** `detect` and `point` accept exactly one subject per call. "Find all cars" works; "find the car and the dog" requires two separate calls. The orchestrator handles this by splitting multi-subject requests into a `multi` action with one detect/point step per item. This is a Moondream API constraint, not an orchestrator limitation.
+
+**OCR timeout risk:** Dense text images (legal documents, full-page screenshots) can push inference past Station's default 30-second timeout, especially on lower-memory machines. The `config.yaml` exposes `moondream.timeout` (default 90s) and `moondream.max_tokens` (default 2048) to handle these cases. If OCR times out, increase these values.
+
+## Routing Disambiguation
+
+The hardest problem in this system isn't vision — it's figuring out what the user actually wants. Natural language is ambiguous, and similar-sounding requests can require completely different action pipelines.
+
+**The core tension:** "Highlight all clothes with their colors" and "What colors are the clothes?" sound almost identical but need different treatment. The first wants bounding boxes drawn on the image AND a text answer about colors (multi: detect + query). The second just wants a text answer (query alone). A third variation, "highlight cloth colors", is ambiguous — does "highlight" mean draw boxes or emphasize in text?
+
+**How we mitigate this:** The orchestrator's system prompt uses few-shot examples rather than verbose rules. Small models (4B parameters) degrade with long instructions due to attention dilution — they follow examples better than explanations. The prompt includes ~28 examples covering:
+
+- **Action keywords** → capability mapping: "show me", "find", "highlight", "mark" route to detect/point, not caption or query.
+- **Compound requests** → multi-step pipelines: "find X and describe Y" splits into detect + query.
+- **Context resolution** → pronoun/reference handling: "show me" after discussing glasses resolves to detect glasses.
+- **Attribute + localization** → multi: "highlight clothes with colors" means detect clothing, then query about colors. The visual localization comes first, the textual answer second.
+- **Reasoning toggle** → speed optimization: simple yes/no questions, OCR, and structured output skip the reasoning step. Complex spatial or analytical questions enable it.
+
+**Where it still gets tricky:** Edge cases exist. "Read the text and highlight the title" is a multi (query for OCR + detect for title), but a 4B model might collapse it to just query. Very long or nested compound requests sometimes lose a step. The practical mitigation: if the result isn't what you expected, rephrase with explicit action verbs. "Find the title" is unambiguous in a way "highlight the title" sometimes isn't.
+
+> [!TIP]
+> For best results, use direct action verbs: "find" / "detect" for bounding boxes, "point to" for location markers, "describe" for captions, "read" / "OCR" for text extraction. Compound requests work best when structured as "do X and then Y" — e.g., "find all people and describe what they're wearing".
+
+## Recommended Chat Flow
+
+A good conversation with this tool follows a natural escalation pattern — start broad, then drill into specifics. The image persists across messages, so you upload once and keep exploring.
+
+**1. Orient** — Start with a caption or open-ended question to understand the image.
+```
+[upload image]
+"What's happening here?"
+```
+
+**2. Locate** — Use detect or point to find specific objects.
+```
+"Find all the people"
+"Point to the red car"
+```
+
+**3. Drill down** — Ask follow-up questions. The orchestrator resolves "it" / "them" from context.
+```
+"What is the person on the left wearing?"
+"Is there a dog in the background?"
+"Show me the dog"
+```
+
+**4. Extract** — Pull structured data or text from the image.
+```
+"Read all the text"
+"Extract a JSON with keys: object, color, position"
+"Convert to markdown"
+```
+
+**5. Compound** — Combine actions when you need both visual and textual answers.
+```
+"Find all the tools and describe the biggest one"
+"Highlight his sweater, pants, and glasses"
+"Detect all vehicles and tell me their colors"
+```
+
+Each step builds on context from previous messages. The orchestrator sees the last 3 exchanges (6 messages), so references like "it", "that one", and "show me" resolve correctly within that window. If you switch to a new image, the context resets naturally.
+
+> [!NOTE]
+> The stop button (■) appears in the message box while processing. It cancels between pipeline steps — if you're midway through a 3-step multi action and press stop, you keep the results from completed steps. It can't interrupt a single in-flight Moondream call (that's a network-level limitation), but it prevents the next step from starting.
+
 ## How the Orchestrator Works
 
 The orchestrator sends a lean system prompt to Qwen 3 4B Instruct with few-shot examples that teach the JSON output format — including OCR, structured output, and reasoning flag examples. Ollama's structured output feature constrains the response to match a predefined JSON schema, so parsing never fails.
