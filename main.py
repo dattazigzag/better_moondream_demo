@@ -17,9 +17,20 @@ def cli():
         default=None,
         help="Host to bind to (default: from config.yaml, or 0.0.0.0)",
     )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["chat", "playground"],
+        default="chat",
+        help="Which app to launch: 'chat' (LLM-routed conversational UI) "
+        "or 'playground' (direct access to each Moondream capability)",
+    )
     args = parser.parse_args()
 
-    from src.app import main
+    if args.mode == "playground":
+        from src.playground import main
+    else:
+        from src.app import main
 
     main(host=args.host, port=args.port)
 

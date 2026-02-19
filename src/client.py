@@ -3,7 +3,8 @@ Moondream client wrapper.
 
 Thin layer around the `moondream` Python client that connects to
 Moondream Station (localhost:2020). Exposes query, caption, detect,
-and point with consistent error handling and connection health checks.
+point, and segment with consistent error handling and connection
+health checks.
 
 Note: The query() method makes HTTP requests directly to the station
 instead of using the library's query() — the library assumes the
@@ -241,6 +242,11 @@ class MoondreamClient:
         Returns bounding boxes with coordinates normalized to 0–1
         (relative to image dimensions).
 
+        Note: Like query(), we make the HTTP request directly instead
+        of calling self.model.detect() because the library blindly
+        accesses result["objects"] which crashes if Station returns
+        an unexpected format (e.g. on cold-start or timeout).
+
         Args:
             image: PIL Image to search.
             subject: What to look for (e.g. "car", "person", "cat").
@@ -252,11 +258,49 @@ class MoondreamClient:
         try:
             log.info(f'detect("{subject}")')
             start = time.time()
-            result = self.model.detect(image, subject)
+
+            encoded = self.model.encode_image(image)
+            image_url = encoded.image_url
+
+            payload: dict = {
+                "image_url": image_url,
+                "object": subject,
+            }
+
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                f"{self.endpoint}/detect",
+                data=data,
+                headers={"Content-Type": "application/json"},
+            )
+
+            http_timeout = config["moondream"].get("timeout", 90)
+
+            with urllib.request.urlopen(req, timeout=http_timeout) as response:
+                raw = response.read().decode("utf-8")
+
+            result = json.loads(raw)
             elapsed = (time.time() - start) * 1000
-            count = len(result["objects"])
+
+            log.debug(f"Station detect response keys: {list(result.keys())}")
+
+            if "error" in result:
+                err_msg = result["error"]
+                log.error(f"Station detect error ({elapsed:.0f}ms): {err_msg}")
+                if "timeout" in str(err_msg).lower():
+                    return {
+                        "error": (
+                            f"Moondream Station timed out during detection ({elapsed / 1000:.0f}s). "
+                            "Try increasing moondream.timeout in config.yaml."
+                        )
+                    }
+                return {"error": f"Detection failed: {err_msg}"}
+
+            objects = result.get("objects", [])
+            count = len(objects)
             log.info(f"detect result ({elapsed:.0f}ms): found {count} object(s)")
-            return {"objects": result["objects"]}
+            return {"objects": objects}
+
         except Exception as e:
             log.error(f"Detection failed: {e}")
             return {"error": f"Detection failed: {e}"}
@@ -269,6 +313,9 @@ class MoondreamClient:
         image dimensions). Values go from top-left (0,0) to
         bottom-right (1,1).
 
+        Note: Like query() and detect(), we make the HTTP request
+        directly for defensive response handling.
+
         Args:
             image: PIL Image to search.
             subject: What to point at (e.g. "the red button").
@@ -280,11 +327,137 @@ class MoondreamClient:
         try:
             log.info(f'point("{subject}")')
             start = time.time()
-            result = self.model.point(image, subject)
+
+            encoded = self.model.encode_image(image)
+            image_url = encoded.image_url
+
+            payload: dict = {
+                "image_url": image_url,
+                "object": subject,
+            }
+
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                f"{self.endpoint}/point",
+                data=data,
+                headers={"Content-Type": "application/json"},
+            )
+
+            http_timeout = config["moondream"].get("timeout", 90)
+
+            with urllib.request.urlopen(req, timeout=http_timeout) as response:
+                raw = response.read().decode("utf-8")
+
+            result = json.loads(raw)
             elapsed = (time.time() - start) * 1000
-            count = len(result["points"])
+
+            log.debug(f"Station point response keys: {list(result.keys())}")
+
+            if "error" in result:
+                err_msg = result["error"]
+                log.error(f"Station point error ({elapsed:.0f}ms): {err_msg}")
+                if "timeout" in str(err_msg).lower():
+                    return {
+                        "error": (
+                            f"Moondream Station timed out during pointing ({elapsed / 1000:.0f}s). "
+                            "Try increasing moondream.timeout in config.yaml."
+                        )
+                    }
+                return {"error": f"Pointing failed: {err_msg}"}
+
+            points = result.get("points", [])
+            count = len(points)
             log.info(f"point result ({elapsed:.0f}ms): found {count} point(s)")
-            return {"points": result["points"]}
+            return {"points": points}
+
         except Exception as e:
             log.error(f"Pointing failed: {e}")
             return {"error": f"Pointing failed: {e}"}
+
+    def segment(self, image, prompt: str) -> dict:
+        """
+        Segment an object in the image using a text prompt.
+
+        Returns an SVG path mask and bounding box for the described
+        object. The SVG path is in pixel coordinates matching the
+        original image dimensions. The bounding box uses normalized
+        0-1 coordinates like detect/point.
+
+        This is a newer Moondream 3 capability and may not be
+        available on all Station versions. If Station doesn't
+        support it, the error is returned cleanly.
+
+        Args:
+            image: PIL Image or pre-encoded image from encode_image().
+            prompt: What to segment (e.g. "the person in blue").
+
+        Returns:
+            {"path": "M...", "bbox": {"x_min": ..., ...}}
+            or {"error": "description"} on failure
+        """
+        try:
+            log.info(f'segment("{prompt}")')
+            start = time.time()
+
+            # Encode image to get the image_url for the HTTP call
+            encoded = self.model.encode_image(image)
+            image_url = encoded.image_url
+
+            payload: dict = {
+                "image_url": image_url,
+                "object": prompt,
+            }
+
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                f"{self.endpoint}/segment",
+                data=data,
+                headers={"Content-Type": "application/json"},
+            )
+
+            http_timeout = config["moondream"].get("timeout", 90)
+
+            with urllib.request.urlopen(req, timeout=http_timeout) as response:
+                raw = response.read().decode("utf-8")
+
+            result = json.loads(raw)
+            elapsed = (time.time() - start) * 1000
+
+            log.debug(f"Station segment response keys: {list(result.keys())}")
+
+            if "error" in result:
+                err_msg = result["error"]
+                log.error(f"Station segment error ({elapsed:.0f}ms): {err_msg}")
+                return {"error": f"Segment failed: {err_msg}"}
+
+            # Extract path and bounding box from response
+            path = result.get("path") or result.get("mask")
+            bbox = result.get("bbox") or result.get("bounding_box")
+
+            if not path:
+                log.error(f"No path in segment response: {list(result.keys())}")
+                return {
+                    "error": (
+                        "Segment returned no mask path. "
+                        "This capability may not be available on your "
+                        "Moondream Station version."
+                    )
+                }
+
+            log.info(f"segment result ({elapsed:.0f}ms): path length={len(path)}")
+            return {"path": path, "bbox": bbox}
+
+        except urllib.error.HTTPError as e:
+            log.error(f"Segment HTTP error: {e.code} {e.reason}")
+            if e.code == 404:
+                return {
+                    "error": (
+                        "Segment endpoint not found (HTTP 404). "
+                        "This capability may not be available on your "
+                        "Moondream Station version."
+                    )
+                }
+            return {"error": f"Segment failed: HTTP {e.code} {e.reason}"}
+        except Exception as e:
+            log.error(f"Segment failed: {e}")
+            return {"error": f"Segment failed: {e}"}

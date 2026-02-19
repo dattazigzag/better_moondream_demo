@@ -1,14 +1,18 @@
 """
 Image annotation renderer.
 
-Takes detection/pointing results from Moondream and draws them onto
-images — bounding boxes for detect, crosshair markers for point.
+Takes detection/pointing/segmentation results from Moondream and draws
+them onto images — bounding boxes for detect, crosshair markers for
+point, and colored masks for segment.
 Returns annotated PIL Images ready for display in the Gradio chat.
 
-All coordinates from Moondream are normalized (0–1 range). This module
-converts them to pixel coordinates based on the actual image dimensions
-before drawing.
+All coordinates from Moondream are normalized (0–1 range) except
+segment paths which are in pixel coordinates. This module converts
+normalized coordinates to pixel coordinates based on the actual image
+dimensions before drawing.
 """
+
+import re
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -190,3 +194,123 @@ def draw_points(
         draw.text((text_x, text_y), label, fill=POINT_COLOR, font=font)
 
     return annotated
+
+
+# ── Segment mask colour ──────────────────────────────────────────
+
+SEGMENT_COLOR = (75, 150, 255)  # blue mask overlay
+
+
+def _parse_svg_path(path: str) -> list[tuple[float, float]]:
+    """
+    Extract (x, y) coordinate pairs from a simple SVG path string.
+
+    Moondream's segment endpoint returns SVG path data (M/L/Z commands)
+    in pixel coordinates. This parser handles the common subset:
+    M (moveto), L (lineto), and Z (closepath). It also handles
+    implicit lineto when coordinates follow M without an explicit L.
+
+    Not a full SVG parser — just enough for the polygon masks that
+    Moondream returns.
+    """
+    points: list[tuple[float, float]] = []
+
+    # Split the path into tokens (commands and numbers)
+    tokens = re.findall(r"[MLZmlz]|[-+]?\d*\.?\d+", path)
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token in ("M", "L", "m", "l"):
+            # Skip the command letter, read coordinate pairs
+            i += 1
+            while i < len(tokens) and tokens[i] not in "MLZmlz":
+                x = float(tokens[i])
+                y = float(tokens[i + 1]) if i + 1 < len(tokens) else 0.0
+                points.append((x, y))
+                i += 2
+        elif token in ("Z", "z"):
+            i += 1
+        else:
+            # Bare number — treat as implicit lineto coordinate
+            try:
+                x = float(tokens[i])
+                y = float(tokens[i + 1]) if i + 1 < len(tokens) else 0.0
+                points.append((x, y))
+                i += 2
+            except (ValueError, IndexError):
+                i += 1
+
+    return points
+
+
+def draw_segment_mask(
+    image: Image.Image,
+    path: str,
+    label: str = "segment",
+) -> Image.Image:
+    """
+    Draw a segmentation mask overlay on an image.
+
+    The SVG path from Moondream's segment endpoint describes a polygon
+    in pixel coordinates. This function fills that polygon with a
+    semi-transparent colour and draws its outline.
+
+    Args:
+        image: Original image (not modified).
+        path: SVG path string from MoondreamClient.segment().
+        label: Optional label to display at the top of the mask.
+
+    Returns:
+        A new annotated PIL Image with the segment mask drawn on it.
+    """
+    points = _parse_svg_path(path)
+
+    if len(points) < 3:
+        # Not enough points to form a polygon — return image as-is
+        return image.copy()
+
+    annotated = image.copy().convert("RGBA")
+    overlay = Image.new("RGBA", annotated.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    # Draw the filled polygon mask
+    fill_color = SEGMENT_COLOR + (60,)  # semi-transparent
+    outline_color = SEGMENT_COLOR + (200,)
+    draw.polygon(points, fill=fill_color, outline=outline_color)
+
+    # Draw the outline with extra width for visibility
+    for i in range(len(points)):
+        p1 = points[i]
+        p2 = points[(i + 1) % len(points)]
+        draw.line([p1, p2], fill=outline_color, width=2)
+
+    # Add label near the top of the bounding area
+    if label:
+        font = _get_font(size=max(14, image.width // 40))
+        # Find the topmost point for label placement
+        min_y_point = min(points, key=lambda p: p[1])
+        text_x = int(min_y_point[0])
+        text_y = int(min_y_point[1]) - 20
+
+        # Keep label within image bounds
+        text_y = max(4, text_y)
+        text_x = max(4, min(text_x, image.width - 80))
+
+        # Dark outline for readability
+        for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+            draw.text(
+                (text_x + dx, text_y + dy),
+                label,
+                fill=(0, 0, 0, 255),
+                font=font,
+            )
+        draw.text(
+            (text_x, text_y),
+            label,
+            fill=SEGMENT_COLOR + (255,),
+            font=font,
+        )
+
+    annotated = Image.alpha_composite(annotated, overlay)
+    return annotated.convert("RGB")
